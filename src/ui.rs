@@ -1,5 +1,6 @@
 use std::io::{self, Write};
 
+use colored::Colorize;
 use crossterm::{
     cursor,
     event::{self, Event, KeyCode},
@@ -7,8 +8,8 @@ use crossterm::{
     style::Print,
     terminal::{self, ClearType},
 };
-use inquire::ui::{Color, RenderConfig, Styled};
 use inquire::Text;
+use inquire::ui::{Color, RenderConfig, Styled};
 
 use crate::categories::CATEGORIES;
 
@@ -152,10 +153,7 @@ fn render_categories(
     let len = visible.len();
 
     if len == 0 {
-        queue!(
-            stdout,
-            Print(format!("    {DIM}no matches{RESET}\r\n"))
-        )?;
+        queue!(stdout, Print(format!("    {DIM}no matches{RESET}\r\n")))?;
     } else {
         for (vi, &ci) in visible.iter().enumerate() {
             let cat = &CATEGORIES[ci];
@@ -163,7 +161,11 @@ fn render_categories(
 
             let bg = if is_cursor { BG_SELECT } else { "" };
             let end_bg = if is_cursor { RESET } else { "" };
-            let pointer = if is_cursor { format!("{CYAN}›{RESET}") } else { " ".to_string() };
+            let pointer = if is_cursor {
+                format!("{CYAN}›{RESET}")
+            } else {
+                " ".to_string()
+            };
 
             queue!(
                 stdout,
@@ -225,8 +227,8 @@ pub fn prompt_message(category: &str) -> Result<String, Box<dyn std::error::Erro
 }
 
 pub fn prompt_description() -> Result<String, Box<dyn std::error::Error>> {
-    let render_config = RenderConfig::default()
-        .with_prompt_prefix(Styled::new("    ").with_fg(Color::DarkGrey));
+    let render_config =
+        RenderConfig::default().with_prompt_prefix(Styled::new("    ").with_fg(Color::DarkGrey));
 
     let desc = Text::new("Description (optional):")
         .with_render_config(render_config)
@@ -238,15 +240,15 @@ pub fn prompt_description() -> Result<String, Box<dyn std::error::Error>> {
 
 pub fn print_success(commit_msg: &str) {
     println!();
-    println!("  \x1b[32m✓{RESET} {BOLD}Committed{RESET}");
+    println!("  {} {}", "✓".green(), "Committed".bold());
     for line in commit_msg.lines() {
-        println!("    {DIM}{line}{RESET}");
+        println!("    {}", line.dimmed());
     }
     println!();
 }
 
 pub fn print_error(msg: &str) {
     eprintln!();
-    eprintln!("  \x1b[31m✗{RESET} {msg}");
+    eprintln!("  {} {}", "✗".red(), msg);
     eprintln!();
 }

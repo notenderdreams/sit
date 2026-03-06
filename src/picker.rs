@@ -64,7 +64,11 @@ pub fn pick_files(changes: Vec<FileChange>) -> Result<Vec<String>, Box<dyn std::
     }
 }
 
-fn run_loop(items: &mut [Item], cursor_pos: &mut usize, stdout: &mut io::Stdout) -> io::Result<bool> {
+fn run_loop(
+    items: &mut [Item],
+    cursor_pos: &mut usize,
+    stdout: &mut io::Stdout,
+) -> io::Result<bool> {
     render(items, *cursor_pos, stdout)?;
 
     loop {
@@ -102,7 +106,11 @@ fn run_loop(items: &mut [Item], cursor_pos: &mut usize, stdout: &mut io::Stdout)
                     for (i, item) in selected.iter().enumerate() {
                         let c = item.change.status.color_code();
                         let icon = item.change.status.icon();
-                        let conn = if i == count - 1 { "└── " } else { "├── " };
+                        let conn = if i == count - 1 {
+                            "└── "
+                        } else {
+                            "├── "
+                        };
                         queue!(
                             stdout,
                             Print(format!(

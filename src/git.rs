@@ -1,5 +1,7 @@
 use std::process::Command;
 
+use colored::{ColoredString, Colorize};
+
 #[derive(Debug, Clone)]
 pub struct FileChange {
     pub path: String,
@@ -43,6 +45,16 @@ impl FileStatus {
             Self::Deleted => 2,
             Self::Renamed => 3,
             Self::Untracked => 4,
+        }
+    }
+
+    pub fn colorize<'a>(&self, text: &'a str) -> ColoredString {
+        match self {
+            Self::Added => text.green(),
+            Self::Modified => text.yellow(),
+            Self::Deleted => text.red(),
+            Self::Renamed => text.cyan(),
+            Self::Untracked => text.bright_black(),
         }
     }
 }
@@ -115,10 +127,6 @@ pub fn commit(message: &str) -> Result<(), Box<dyn std::error::Error>> {
     if output.status.success() {
         Ok(())
     } else {
-        Err(format!(
-            "Commit failed: {}",
-            String::from_utf8_lossy(&output.stderr)
-        )
-        .into())
+        Err(format!("Commit failed: {}", String::from_utf8_lossy(&output.stderr)).into())
     }
 }
