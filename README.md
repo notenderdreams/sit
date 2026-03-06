@@ -1,4 +1,4 @@
-# sit
+# sit (structured interactive git)
 
 A minimal CLI tool for structured Git commits. It provides an interactive workflow to select changed files, pick a commit category (e.g., feat, fix, docs), and compose a formatted commit message — all from the terminal.
 
@@ -19,3 +19,6 @@ pub const CATEGORIES: &[Category] = &[
     Category { name: "none",     description: "No category prefix",      emoji: "── " },
 ];
 ```
+
+> Note 
+> I genuinely wanted something like this for my projects, so I built it. There are other tools out there that do similar things, but I wanted something minimal and tailored to my workflow. 
