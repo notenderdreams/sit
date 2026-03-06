@@ -2,7 +2,7 @@ use clap::{Parser, Subcommand};
 use colored::Colorize;
 
 use crate::config::Config;
-use crate::{git, picker, print, ui};
+use crate::{clone, git, picker, print, ui};
 
 /// Structured interactive commits
 #[derive(Parser)]
@@ -21,6 +21,13 @@ enum Commands {
     /// List available commit categories
     #[command(alias = "cat")]
     Categories,
+
+    /// Clone a GitHub repository
+    Clone {
+        /// Repository URL (https://github.com/user/repo or user/repo)
+        #[arg(value_name = "URL")]
+        repo: String,
+    },
 }
 
 pub fn run() -> Result<(), Box<dyn std::error::Error>> {
@@ -30,6 +37,7 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
     match cli.command {
         None | Some(Commands::Commit) => interactive_commit(&cfg),
         Some(Commands::Categories) => show_categories(&cfg),
+        Some(Commands::Clone { repo }) => clone_repo(&cfg, &repo),
     }
 }
 
@@ -100,5 +108,15 @@ fn show_categories(cfg: &Config) -> Result<(), Box<dyn std::error::Error>> {
         }
     }
     print::blank();
+    Ok(())
+}
+
+fn clone_repo(cfg: &Config, repo_url: &str) -> Result<(), Box<dyn std::error::Error>> {
+    let target_path = clone::clone_repo(repo_url, &cfg.clone.dir)?;
+
+    // Output the cloned directory path for shell integration
+    // Usage: cd $(sit clone https://github.com/user/repo)
+    println!("{}", target_path.display());
+
     Ok(())
 }
