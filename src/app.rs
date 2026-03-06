@@ -52,6 +52,13 @@ fn interactive_commit(cfg: &Config) -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let category = ui::select_category(&cfg.categories, cfg.commit.show_emoji)?;
+
+    let module = if cfg.has_modules() {
+        ui::select_module(&cfg.modules)?
+    } else {
+        None
+    };
+
     let message = ui::prompt_message(category)?;
 
     let description = if cfg.commit.ask_description {
@@ -60,7 +67,7 @@ fn interactive_commit(cfg: &Config) -> Result<(), Box<dyn std::error::Error>> {
         String::new()
     };
 
-    let full_message = cfg.format_commit(category, &message, &description);
+    let full_message = cfg.format_commit(category, module, &message, &description);
 
     git::stage_files(&selected_files)?;
     git::commit(&full_message)?;

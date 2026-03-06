@@ -11,6 +11,7 @@ use inquire::Text;
 use inquire::ui::{Color, RenderConfig, Styled};
 
 use crate::categories::Category;
+use crate::config::Module;
 
 const RESET: &str = "\x1b[0m";
 const BOLD: &str = "\x1b[1m";
@@ -232,6 +233,228 @@ fn render_categories(
 
 fn clear_category_display(categories: &[Category], stdout: &mut io::Stdout) -> io::Result<()> {
     let total_lines = categories.len() + 5;
+    queue!(stdout, cursor::MoveToColumn(0))?;
+    for _ in 0..total_lines {
+        queue!(
+            stdout,
+            terminal::Clear(ClearType::CurrentLine),
+            cursor::MoveUp(1)
+        )?;
+    }
+    queue!(stdout, terminal::Clear(ClearType::CurrentLine))?;
+    stdout.flush()
+}
+
+pub fn select_module<'a>(
+    modules: &'a [Module],
+) -> Result<Option<&'a str>, Box<dyn std::error::Error>> {
+    let mut cursor_pos: usize = 0;
+    let mut filter = String::new();
+    let mut stdout = io::stdout();
+
+    terminal::enable_raw_mode()?;
+    execute!(stdout, cursor::Hide)?;
+
+    let result = module_loop(modules, &mut cursor_pos, &mut filter, &mut stdout);
+
+    execute!(stdout, cursor::Show)?;
+    terminal::disable_raw_mode()?;
+
+    result
+}
+
+fn filtered_module_indices(modules: &[Module], filter: &str) -> Vec<usize> {
+    if filter.is_empty() {
+        (0..modules.len()).collect()
+    } else {
+        let f = filter.to_lowercase();
+        modules
+            .iter()
+            .enumerate()
+            .filter(|(_, m)| {
+                m.name.to_lowercase().contains(&f) || m.description.to_lowercase().contains(&f)
+            })
+            .map(|(i, _)| i)
+            .collect()
+    }
+}
+
+fn module_loop<'a>(
+    modules: &'a [Module],
+    cursor_pos: &mut usize,
+    filter: &mut String,
+    stdout: &mut io::Stdout,
+) -> Result<Option<&'a str>, Box<dyn std::error::Error>> {
+    // Total display height: header(2) + blank + items + skip option + blank + help
+    render_modules(modules, &filtered_module_indices(modules, filter), *cursor_pos, filter, stdout)?;
+
+    loop {
+        if let Event::Key(key) = event::read()? {
+            let visible = filtered_module_indices(modules, filter);
+            let total_items = visible.len() + 1; // +1 for skip row
+
+            match key.code {
+                KeyCode::Up | KeyCode::BackTab => {
+                    if *cursor_pos > 0 {
+                        *cursor_pos -= 1;
+                    }
+                }
+                KeyCode::Down | KeyCode::Tab => {
+                    if *cursor_pos < total_items.saturating_sub(1) {
+                        *cursor_pos += 1;
+                    }
+                }
+                KeyCode::Backspace => {
+                    filter.pop();
+                    *cursor_pos = 0;
+                }
+                KeyCode::Char(ch) => {
+                    filter.push(ch);
+                    *cursor_pos = 0;
+                }
+                KeyCode::Enter => {
+                    let vis = filtered_module_indices(modules, filter);
+                    clear_module_display(modules, stdout)?;
+
+                    // Last item = skip (no module)
+                    if *cursor_pos >= vis.len() {
+                        queue!(
+                            stdout,
+                            Print(format!(
+                                "\r\n  {BOLD}  Module{RESET}  {DIM}none{RESET}\r\n\r\n"
+                            ))
+                        )?;
+                        stdout.flush()?;
+                        return Ok(None);
+                    }
+
+                    let idx = vis[*cursor_pos];
+                    let m = &modules[idx];
+                    queue!(
+                        stdout,
+                        Print(format!(
+                            "\r\n  {BOLD}  Module{RESET}  {CYAN}{}{RESET} {DIM}{}{RESET}\r\n\r\n",
+                            m.name, m.description
+                        ))
+                    )?;
+                    stdout.flush()?;
+                    return Ok(Some(&m.name));
+                }
+                KeyCode::Esc => {
+                    clear_module_display(modules, stdout)?;
+                    return Err("Cancelled".into());
+                }
+                _ => {}
+            }
+
+            let vis = filtered_module_indices(modules, filter);
+            let total_items = vis.len() + 1;
+            if *cursor_pos >= total_items {
+                *cursor_pos = total_items.saturating_sub(1);
+            }
+            render_modules(modules, &vis, *cursor_pos, filter, stdout)?;
+        }
+    }
+}
+
+fn render_modules(
+    modules: &[Module],
+    visible: &[usize],
+    cursor_pos: usize,
+    filter: &str,
+    stdout: &mut io::Stdout,
+) -> io::Result<()> {
+    let total_lines = modules.len() + 6; // header + blank + items + skip + blank + help
+    queue!(stdout, cursor::MoveToColumn(0))?;
+    for _ in 0..total_lines {
+        queue!(
+            stdout,
+            terminal::Clear(ClearType::CurrentLine),
+            cursor::MoveUp(1)
+        )?;
+    }
+    queue!(stdout, terminal::Clear(ClearType::CurrentLine))?;
+
+    if filter.is_empty() {
+        queue!(
+            stdout,
+            Print(format!(
+                "\r\n  {BOLD}  Module{RESET} {DIM}(type to filter){RESET}\r\n\r\n"
+            ))
+        )?;
+    } else {
+        queue!(
+            stdout,
+            Print(format!(
+                "\r\n  {BOLD}  Module{RESET}  {DIM}/{RESET}{CYAN}{filter}{RESET}\r\n\r\n"
+            ))
+        )?;
+    }
+
+    let max_name = modules
+        .iter()
+        .map(|m| m.name.len())
+        .max()
+        .unwrap_or(4)
+        .max(4); // at least "none"
+
+    if visible.is_empty() && filter.is_empty() {
+        // shouldn't happen, but safety
+    } else {
+        for (vi, &mi) in visible.iter().enumerate() {
+            let m = &modules[mi];
+            let is_cursor = vi == cursor_pos;
+            let bg = if is_cursor { BG_SELECT } else { "" };
+            let end_bg = if is_cursor { RESET } else { "" };
+            let pointer = if is_cursor {
+                format!("{CYAN}\u{203a}{RESET}")
+            } else {
+                " ".to_string()
+            };
+
+            queue!(
+                stdout,
+                Print(format!(
+                    "  {bg} {pointer}  {BOLD}{:<width$}{RESET}{bg}  {DIM}{}{end_bg}{RESET}\r\n",
+                    m.name,
+                    m.description,
+                    width = max_name
+                ))
+            )?;
+        }
+
+        // "none" / skip row
+        let skip_idx = visible.len();
+        let is_cursor = cursor_pos == skip_idx;
+        let bg = if is_cursor { BG_SELECT } else { "" };
+        let end_bg = if is_cursor { RESET } else { "" };
+        let pointer = if is_cursor {
+            format!("{CYAN}\u{203a}{RESET}")
+        } else {
+            " ".to_string()
+        };
+        queue!(
+            stdout,
+            Print(format!(
+                "  {bg} {pointer}  {DIM}{:<width$}  skip{end_bg}{RESET}\r\n",
+                "none",
+                width = max_name
+            ))
+        )?;
+    }
+
+    queue!(
+        stdout,
+        Print(format!(
+            "\r\n  {DIM}\u{2191}\u{2193}{RESET} move  {DIM}type{RESET} filter  {DIM}enter{RESET} select  {DIM}esc{RESET} cancel"
+        ))
+    )?;
+
+    stdout.flush()
+}
+
+fn clear_module_display(modules: &[Module], stdout: &mut io::Stdout) -> io::Result<()> {
+    let total_lines = modules.len() + 6;
     queue!(stdout, cursor::MoveToColumn(0))?;
     for _ in 0..total_lines {
         queue!(

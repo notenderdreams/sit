@@ -17,6 +17,13 @@ struct RawConfig {
     /// fix  = { emoji = "🐛", desc = "Fix a bug" }
     /// ```
     categories: Option<toml::value::Table>,
+    /// Modules as a map:
+    /// ```toml
+    /// [modules]
+    /// core = "Core logic"
+    /// cli  = "CLI interface"
+    /// ```
+    modules: Option<toml::value::Table>,
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -41,6 +48,13 @@ struct RawCategory {
 pub struct Config {
     pub commit: CommitConfig,
     pub categories: Vec<Category>,
+    pub modules: Vec<Module>,
+}
+
+#[derive(Debug, Clone)]
+pub struct Module {
+    pub name: String,
+    pub description: String,
 }
 
 #[derive(Debug, Clone)]
@@ -56,7 +70,7 @@ pub struct CommitConfig {
 impl Default for CommitConfig {
     fn default() -> Self {
         Self {
-            template: "{type}: {message}".into(),
+            template: "$type($mod): $message".into(),
             ask_description: true,
             show_emoji: true,
         }
@@ -75,6 +89,7 @@ impl Default for Config {
                     emoji: c.emoji.to_owned(),
                 })
                 .collect(),
+            modules: vec![],
         }
     }
 }
@@ -143,27 +158,80 @@ impl Config {
                 })
                 .collect();
         }
+
+        // Modules – if provided, *replace* the full list
+        if let Some(mods) = raw.modules {
+            self.modules = mods
+                .into_iter()
+                .filter_map(|(name, value)| {
+                    let description = match value {
+                        toml::Value::String(s) => s,
+                        other => {
+                            crate::print::warn(&format!(
+                                "Invalid module entry for '{}': expected string, got {}",
+                                name,
+                                other.type_str()
+                            ));
+                            return None;
+                        }
+                    };
+                    Some(Module { name, description })
+                })
+                .collect();
+        }
     }
 
     /// Format a commit subject using the configured template.
-    pub fn format_subject(&self, category: &str, message: &str) -> String {
+    /// Placeholders: `$type`, `$mod`, `$message`
+    pub fn format_subject(&self, category: &str, module: Option<&str>, message: &str) -> String {
         if category == "none" {
-            return message.to_owned();
+            return match module {
+                Some(m) if !m.is_empty() => format!("({}): {}", m, message),
+                _ => message.to_owned(),
+            };
         }
-        self.commit
-            .template
-            .replace("{type}", category)
-            .replace("{message}", message)
+
+        let mut result = self.commit.template.clone();
+        result = result.replace("$type", category);
+        result = result.replace("$message", message);
+
+        // Handle $mod – if no module selected, collapse "($mod)" or just remove "$mod"
+        match module {
+            Some(m) if !m.is_empty() => {
+                result = result.replace("$mod", m);
+            }
+            _ => {
+                // Remove common patterns like "($mod)" or "[$mod]" or just "$mod"
+                result = result.replace("($mod)", "");
+                result = result.replace("[$mod]", "");
+                result = result.replace("$mod", "");
+                // Clean up double spaces or leading colons from collapsed module
+                result = result.replace("  ", " ");
+            }
+        }
+
+        result.trim().to_owned()
     }
 
     /// Build full commit message (subject + optional description).
-    pub fn format_commit(&self, category: &str, message: &str, description: &str) -> String {
-        let subject = self.format_subject(category, message);
+    pub fn format_commit(
+        &self,
+        category: &str,
+        module: Option<&str>,
+        message: &str,
+        description: &str,
+    ) -> String {
+        let subject = self.format_subject(category, module, message);
         if description.trim().is_empty() {
             subject
         } else {
             format!("{}\n\n{}", subject, description)
         }
+    }
+
+    /// Whether modules are configured.
+    pub fn has_modules(&self) -> bool {
+        !self.modules.is_empty()
     }
 }
 

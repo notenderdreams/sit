@@ -1,7 +1,14 @@
 [commit]
-template = "{type}: {message}"
+template = "$type($mod): $message"
 ask_description = true
 show_emoji = true
+
+[modules]
+core     = "Core logic"
+cli      = "CLI interface"
+config   = "Configuration system"
+ui       = "User interface"
+git      = "Git operations"
 
 [categories]
 feat     = { emoji = "✨", desc = "Add a new feature" }
