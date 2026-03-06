@@ -1,0 +1,19 @@
+[commit]
+template = "{type}: {message}"
+ask_description = true
+show_emoji = true
+
+[categories]
+feat     = { emoji = "✨", desc = "Add a new feature" }
+fix      = { emoji = "🐛", desc = "Fix a bug" }
+docs     = { emoji = "📚", desc = "Documentation changes" }
+style    = { emoji = "🎨", desc = "Code style / formatting" }
+refactor = { emoji = "♻️",  desc = "Refactor code" }
+perf     = { emoji = "⚡", desc = "Performance improvement" }
+test     = { emoji = "🧪", desc = "Add or update tests" }
+build    = { emoji = "📦", desc = "Build system changes" }
+ci       = { emoji = "⚙️",  desc = "CI/CD changes" }
+chore    = { emoji = "🧹", desc = "Maintenance / chores" }
+revert   = { emoji = "⏪", desc = "Revert a commit" }
+wip      = { emoji = "🚧", desc = "Work in progress" }
+none     = { emoji = "──",  desc = "No category prefix" }

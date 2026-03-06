@@ -10,7 +10,7 @@ use crossterm::{
 use inquire::Text;
 use inquire::ui::{Color, RenderConfig, Styled};
 
-use crate::categories::CATEGORIES;
+use crate::categories::Category;
 
 const RESET: &str = "\x1b[0m";
 const BOLD: &str = "\x1b[1m";
@@ -18,7 +18,10 @@ const DIM: &str = "\x1b[2m";
 const BG_SELECT: &str = "\x1b[48;5;236m";
 const CYAN: &str = "\x1b[36m";
 
-pub fn select_category() -> Result<&'static str, Box<dyn std::error::Error>> {
+pub fn select_category<'a>(
+    categories: &'a [Category],
+    show_emoji: bool,
+) -> Result<&'a str, Box<dyn std::error::Error>> {
     let mut cursor_pos: usize = 0;
     let mut filter = String::new();
     let mut stdout = io::stdout();
@@ -26,7 +29,13 @@ pub fn select_category() -> Result<&'static str, Box<dyn std::error::Error>> {
     terminal::enable_raw_mode()?;
     execute!(stdout, cursor::Hide)?;
 
-    let result = category_loop(&mut cursor_pos, &mut filter, &mut stdout);
+    let result = category_loop(
+        categories,
+        show_emoji,
+        &mut cursor_pos,
+        &mut filter,
+        &mut stdout,
+    );
 
     execute!(stdout, cursor::Show)?;
     terminal::disable_raw_mode()?;
@@ -34,12 +43,12 @@ pub fn select_category() -> Result<&'static str, Box<dyn std::error::Error>> {
     result
 }
 
-fn filtered_indices(filter: &str) -> Vec<usize> {
+fn filtered_indices(categories: &[Category], filter: &str) -> Vec<usize> {
     if filter.is_empty() {
-        (0..CATEGORIES.len()).collect()
+        (0..categories.len()).collect()
     } else {
         let f = filter.to_lowercase();
-        CATEGORIES
+        categories
             .iter()
             .enumerate()
             .filter(|(_, c)| {
@@ -50,17 +59,24 @@ fn filtered_indices(filter: &str) -> Vec<usize> {
     }
 }
 
-fn category_loop(
+fn category_loop<'a>(
+    categories: &'a [Category],
+    show_emoji: bool,
     cursor_pos: &mut usize,
     filter: &mut String,
     stdout: &mut io::Stdout,
-) -> Result<&'static str, Box<dyn std::error::Error>> {
-    render_categories(&filtered_indices(filter), *cursor_pos, filter, stdout)?;
+) -> Result<&'a str, Box<dyn std::error::Error>> {
+    render_categories(
+        categories,
+        show_emoji,
+        &filtered_indices(categories, filter),
+        *cursor_pos,
+        filter,
+        stdout,
+    )?;
 
     loop {
         if let Event::Key(key) = event::read()? {
-            let visible = filtered_indices(filter);
-
             match key.code {
                 KeyCode::Up | KeyCode::BackTab => {
                     if *cursor_pos > 0 {
@@ -68,7 +84,7 @@ fn category_loop(
                     }
                 }
                 KeyCode::Down | KeyCode::Tab => {
-                    let vis = filtered_indices(filter);
+                    let vis = filtered_indices(categories, filter);
                     if *cursor_pos < vis.len().saturating_sub(1) {
                         *cursor_pos += 1;
                     }
@@ -82,45 +98,57 @@ fn category_loop(
                     *cursor_pos = 0;
                 }
                 KeyCode::Enter => {
-                    let vis = filtered_indices(filter);
+                    let vis = filtered_indices(categories, filter);
                     if let Some(&idx) = vis.get(*cursor_pos) {
-                        let cat = &CATEGORIES[idx];
-                        clear_category_display(visible.len(), stdout)?;
+                        let cat = &categories[idx];
+                        clear_category_display(categories, stdout)?;
                         // Print selected
-                        queue!(
-                            stdout,
-                            Print(format!(
-                                "\r\n  {BOLD}  Type{RESET}  {} {CYAN}{}{RESET} {DIM}{}{RESET}\r\n\r\n",
-                                cat.emoji, cat.name, cat.description
-                            ))
-                        )?;
+                        if show_emoji {
+                            queue!(
+                                stdout,
+                                Print(format!(
+                                    "\r\n  {BOLD}  Type{RESET}  {} {CYAN}{}{RESET} {DIM}{}{RESET}\r\n\r\n",
+                                    cat.emoji, cat.name, cat.description
+                                ))
+                            )?;
+                        } else {
+                            queue!(
+                                stdout,
+                                Print(format!(
+                                    "\r\n  {BOLD}  Type{RESET}  {CYAN}{}{RESET} {DIM}{}{RESET}\r\n\r\n",
+                                    cat.name, cat.description
+                                ))
+                            )?;
+                        }
                         stdout.flush()?;
-                        return Ok(cat.name);
+                        return Ok(&cat.name);
                     }
                 }
                 KeyCode::Esc => {
-                    clear_category_display(visible.len(), stdout)?;
+                    clear_category_display(categories, stdout)?;
                     return Err("Cancelled".into());
                 }
                 _ => {}
             }
 
-            let vis = filtered_indices(filter);
+            let vis = filtered_indices(categories, filter);
             if *cursor_pos >= vis.len() {
                 *cursor_pos = vis.len().saturating_sub(1);
             }
-            render_categories(&vis, *cursor_pos, filter, stdout)?;
+            render_categories(categories, show_emoji, &vis, *cursor_pos, filter, stdout)?;
         }
     }
 }
 
 fn render_categories(
+    categories: &[Category],
+    show_emoji: bool,
     visible: &[usize],
     cursor_pos: usize,
     filter: &str,
     stdout: &mut io::Stdout,
 ) -> io::Result<()> {
-    let total_lines = CATEGORIES.len() + 5;
+    let total_lines = categories.len() + 5;
     queue!(stdout, cursor::MoveToColumn(0))?;
     for _ in 0..total_lines {
         queue!(
@@ -148,14 +176,14 @@ fn render_categories(
         )?;
     }
 
-    let max_name = CATEGORIES.iter().map(|c| c.name.len()).max().unwrap_or(8);
+    let max_name = categories.iter().map(|c| c.name.len()).max().unwrap_or(8);
     let len = visible.len();
 
     if len == 0 {
         queue!(stdout, Print(format!("    {DIM}no matches{RESET}\r\n")))?;
     } else {
         for (vi, &ci) in visible.iter().enumerate() {
-            let cat = &CATEGORIES[ci];
+            let cat = &categories[ci];
             let is_cursor = vi == cursor_pos;
 
             let bg = if is_cursor { BG_SELECT } else { "" };
@@ -166,16 +194,28 @@ fn render_categories(
                 " ".to_string()
             };
 
-            queue!(
-                stdout,
-                Print(format!(
-                    "  {bg} {pointer}  {}  {BOLD}{:<width$}{RESET}{bg}  {DIM}{}{end_bg}{RESET}\r\n",
-                    cat.emoji,
-                    cat.name,
-                    cat.description,
-                    width = max_name
-                ))
-            )?;
+            if show_emoji {
+                queue!(
+                    stdout,
+                    Print(format!(
+                        "  {bg} {pointer}  {}  {BOLD}{:<width$}{RESET}{bg}  {DIM}{}{end_bg}{RESET}\r\n",
+                        cat.emoji,
+                        cat.name,
+                        cat.description,
+                        width = max_name
+                    ))
+                )?;
+            } else {
+                queue!(
+                    stdout,
+                    Print(format!(
+                        "  {bg} {pointer}  {BOLD}{:<width$}{RESET}{bg}  {DIM}{}{end_bg}{RESET}\r\n",
+                        cat.name,
+                        cat.description,
+                        width = max_name
+                    ))
+                )?;
+            }
         }
     }
 
@@ -190,8 +230,8 @@ fn render_categories(
     stdout.flush()
 }
 
-fn clear_category_display(_visible_count: usize, stdout: &mut io::Stdout) -> io::Result<()> {
-    let total_lines = CATEGORIES.len() + 5;
+fn clear_category_display(categories: &[Category], stdout: &mut io::Stdout) -> io::Result<()> {
+    let total_lines = categories.len() + 5;
     queue!(stdout, cursor::MoveToColumn(0))?;
     for _ in 0..total_lines {
         queue!(

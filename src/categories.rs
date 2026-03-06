@@ -1,72 +1,80 @@
 #[derive(Debug, Clone)]
 pub struct Category {
+    pub name: String,
+    pub description: String,
+    pub emoji: String,
+}
+
+/// Compile-time category definition (for the built-in defaults).
+pub struct StaticCategory {
     pub name: &'static str,
     pub description: &'static str,
     pub emoji: &'static str,
 }
 
-pub const CATEGORIES: &[Category] = &[
-    Category {
+/// Built-in default categories (used when no config overrides them).
+pub const DEFAULT_CATEGORIES: &[StaticCategory] = &[
+    StaticCategory {
         name: "feat",
         description: "Add a new feature",
         emoji: "✨",
     },
-    Category {
+    StaticCategory {
         name: "fix",
         description: "Fix a bug",
         emoji: "🐛",
     },
-    Category {
+    StaticCategory {
         name: "docs",
         description: "Documentation changes",
         emoji: "📚",
     },
-    Category {
+    StaticCategory {
         name: "style",
         description: "Code style / formatting",
         emoji: "🎨",
     },
-    Category {
+    StaticCategory {
         name: "refactor",
         description: "Refactor code",
         emoji: "♻️ ",
     },
-    Category {
+    StaticCategory {
         name: "perf",
         description: "Performance improvement",
         emoji: "⚡",
     },
-    Category {
+    StaticCategory {
         name: "test",
         description: "Add or update tests",
         emoji: "🧪",
     },
-    Category {
+    StaticCategory {
         name: "build",
         description: "Build system changes",
         emoji: "📦",
     },
-    Category {
+    StaticCategory {
         name: "ci",
         description: "CI/CD changes",
         emoji: "⚙️ ",
     },
-    Category {
+    StaticCategory {
         name: "chore",
         description: "Maintenance / chores",
         emoji: "🧹",
     },
-    Category {
+    StaticCategory {
         name: "revert",
         description: "Revert a commit",
         emoji: "⏪",
     },
-    Category {
+    StaticCategory {
         name: "wip",
         description: "Work in progress",
         emoji: "🚧",
     },
-    Category {
+    StaticCategory {
         name: "none",
         description: "No category prefix",
         emoji: "── ",

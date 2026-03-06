@@ -1,7 +1,7 @@
 use clap::{Parser, Subcommand};
 use colored::Colorize;
 
-use crate::categories::CATEGORIES;
+use crate::config::Config;
 use crate::{git, picker, print, ui};
 
 /// Structured interactive commits
@@ -25,14 +25,15 @@ enum Commands {
 
 pub fn run() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
+    let cfg = Config::load();
 
     match cli.command {
-        None | Some(Commands::Commit) => interactive_commit(),
-        Some(Commands::Categories) => show_categories(),
+        None | Some(Commands::Commit) => interactive_commit(&cfg),
+        Some(Commands::Categories) => show_categories(&cfg),
     }
 }
 
-fn interactive_commit() -> Result<(), Box<dyn std::error::Error>> {
+fn interactive_commit(cfg: &Config) -> Result<(), Box<dyn std::error::Error>> {
     let changes = git::get_status()?;
 
     if changes.is_empty() {
@@ -50,21 +51,16 @@ fn interactive_commit() -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
 
-    let category = ui::select_category()?;
+    let category = ui::select_category(&cfg.categories, cfg.commit.show_emoji)?;
     let message = ui::prompt_message(category)?;
-    let description = ui::prompt_description()?;
 
-    let full_message = if category == "none" {
-        if description.trim().is_empty() {
-            message.clone()
-        } else {
-            format!("{}\n\n{}", message, description)
-        }
-    } else if description.trim().is_empty() {
-        format!("{}: {}", category, message)
+    let description = if cfg.commit.ask_description {
+        ui::prompt_description()?
     } else {
-        format!("{}: {}\n\n{}", category, message, description)
+        String::new()
     };
+
+    let full_message = cfg.format_commit(category, &message, &description);
 
     git::stage_files(&selected_files)?;
     git::commit(&full_message)?;
@@ -76,17 +72,25 @@ fn interactive_commit() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn show_categories() -> Result<(), Box<dyn std::error::Error>> {
+fn show_categories(cfg: &Config) -> Result<(), Box<dyn std::error::Error>> {
     print::blank();
     print::header("Commit Categories:");
     print::blank();
-    for cat in CATEGORIES {
-        println!(
-            "    {}  {}  {}",
-            cat.emoji,
-            cat.name.bold(),
-            cat.description.bright_black()
-        );
+    for cat in &cfg.categories {
+        if cfg.commit.show_emoji {
+            println!(
+                "    {}  {}  {}",
+                cat.emoji,
+                cat.name.bold(),
+                cat.description.bright_black()
+            );
+        } else {
+            println!(
+                "    {}  {}",
+                cat.name.bold(),
+                cat.description.bright_black()
+            );
+        }
     }
     print::blank();
     Ok(())
