@@ -1,6 +1,5 @@
 use std::io::{self, Write};
 
-use colored::Colorize;
 use crossterm::{
     cursor,
     event::{self, Event, KeyCode},
@@ -239,16 +238,13 @@ pub fn prompt_description() -> Result<String, Box<dyn std::error::Error>> {
 }
 
 pub fn print_success(commit_msg: &str) {
-    println!();
-    println!("  {} {}", "✓".green(), "Committed".bold());
-    for line in commit_msg.lines() {
-        println!("    {}", line.dimmed());
-    }
-    println!();
+    crate::print::blank();
+    crate::print::success_with_details("Committed", commit_msg);
+    crate::print::blank();
 }
 
 pub fn print_error(msg: &str) {
-    eprintln!();
-    eprintln!("  {} {}", "✗".red(), msg);
-    eprintln!();
+    crate::print::blank();
+    crate::print::error(msg);
+    crate::print::blank();
 }

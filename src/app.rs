@@ -2,7 +2,7 @@ use clap::{Parser, Subcommand};
 use colored::Colorize;
 
 use crate::categories::CATEGORIES;
-use crate::{git, picker, ui};
+use crate::{git, picker, print, ui};
 
 /// Structured interactive commits
 #[derive(Parser)]
@@ -36,14 +36,17 @@ fn interactive_commit() -> Result<(), Box<dyn std::error::Error>> {
     let changes = git::get_status()?;
 
     if changes.is_empty() {
-        println!("\n  {}\n", "No changes to commit".bright_black());
+        print::blank();
+        print::hint("No changes to commit");
+        print::blank();
         return Ok(());
     }
 
     let selected_files = picker::pick_files(changes)?;
 
     if selected_files.is_empty() {
-        println!("  {}\n", "No files selected".bright_black());
+        print::hint("No files selected");
+        print::blank();
         return Ok(());
     }
 
@@ -65,13 +68,18 @@ fn interactive_commit() -> Result<(), Box<dyn std::error::Error>> {
 
     git::stage_files(&selected_files)?;
     git::commit(&full_message)?;
-    ui::print_success(&full_message);
+
+    print::blank();
+    print::success_with_details("Committed", &full_message);
+    print::blank();
 
     Ok(())
 }
 
 fn show_categories() -> Result<(), Box<dyn std::error::Error>> {
-    println!("\n  {}\n", "Commit Categories:".bold());
+    print::blank();
+    print::header("Commit Categories:");
+    print::blank();
     for cat in CATEGORIES {
         println!(
             "    {}  {}  {}",
@@ -80,6 +88,6 @@ fn show_categories() -> Result<(), Box<dyn std::error::Error>> {
             cat.description.bright_black()
         );
     }
-    println!();
+    print::blank();
     Ok(())
 }
