@@ -78,7 +78,7 @@ jobs:
       - name: Package final binary
         shell: bash
         run: |
-          BINARY=target/${{ matrix.job.target }}/release/learn-ci
+          BINARY=target/${{ matrix.job.target }}/release/sit
           if [[ "${{ matrix.job.os-name }}" == "windows" ]]; then
             BINARY=$BINARY.exe
           fi
@@ -95,13 +95,13 @@ jobs:
 
           mkdir -p package
           if [[ "${{ matrix.job.os-name }}" == "windows" ]]; then
-            cp $BINARY package/learn-ci.exe
+            cp $BINARY package/sit.exe
           else
-            cp $BINARY package/learn-ci
+            cp $BINARY package/sit
           fi
 
           mkdir -p assets
-          RELEASE_NAME=learn-ci-${GITHUB_REF/refs\/tags\//}-${{ matrix.job.os-name }}-${{ matrix.job.architecture }}
+          RELEASE_NAME=sit-${GITHUB_REF/refs\/tags\//}-${{ matrix.job.os-name }}-${{ matrix.job.architecture }}
 
           if [[ "${{ matrix.job.os-name }}" == "windows" ]]; then
             powershell Compress-Archive -Path package/* -DestinationPath assets/$RELEASE_NAME.zip
