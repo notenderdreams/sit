@@ -2,7 +2,7 @@ use std::io::{self, Write};
 
 use crossterm::{
     cursor,
-    event::{self, Event, KeyCode},
+    event::{self, Event, KeyCode, KeyEventKind},
     execute, queue,
     style::Print,
     terminal::{self, ClearType},
@@ -69,10 +69,14 @@ fn run_loop(
     cursor_pos: &mut usize,
     stdout: &mut io::Stdout,
 ) -> io::Result<bool> {
-    render(items, *cursor_pos, stdout)?;
+    let mut last_height: usize = 0;
+    last_height = render(items, *cursor_pos, last_height, stdout)?;
 
     loop {
         if let Event::Key(key) = event::read()? {
+            if key.kind != KeyEventKind::Press {
+                continue;
+            }
             match key.code {
                 KeyCode::Up | KeyCode::Char('k') => {
                     if *cursor_pos > 0 {
@@ -94,7 +98,7 @@ fn run_loop(
                     }
                 }
                 KeyCode::Enter => {
-                    clear_display(items.len(), stdout)?;
+                    clear_display(last_height, stdout)?;
                     let selected: Vec<&Item> = items.iter().filter(|i| i.selected).collect();
                     let count = selected.len();
                     queue!(
@@ -124,27 +128,28 @@ fn run_loop(
                     return Ok(true);
                 }
                 KeyCode::Esc | KeyCode::Char('q') => {
-                    clear_display(items.len(), stdout)?;
+                    clear_display(last_height, stdout)?;
                     return Ok(false);
                 }
                 _ => {}
             }
-            render(items, *cursor_pos, stdout)?;
+            last_height = render(items, *cursor_pos, last_height, stdout)?;
         }
     }
 }
 
-fn render(items: &[Item], cursor_pos: usize, stdout: &mut io::Stdout) -> io::Result<()> {
-    let total_lines = items.len() + 4; // header + blank + items + help
-    queue!(stdout, cursor::MoveToColumn(0))?;
-    for _ in 0..total_lines {
-        queue!(
-            stdout,
-            terminal::Clear(ClearType::CurrentLine),
-            cursor::MoveUp(1)
-        )?;
+fn render(items: &[Item], cursor_pos: usize, prev_height: usize, stdout: &mut io::Stdout) -> io::Result<usize> {
+    if prev_height > 0 {
+        queue!(stdout, cursor::MoveToColumn(0))?;
+        for _ in 0..prev_height {
+            queue!(
+                stdout,
+                terminal::Clear(ClearType::CurrentLine),
+                cursor::MoveUp(1)
+            )?;
+        }
+        queue!(stdout, terminal::Clear(ClearType::CurrentLine))?;
     }
-    queue!(stdout, terminal::Clear(ClearType::CurrentLine))?;
 
     let selected_count = items.iter().filter(|i| i.selected).count();
 
@@ -194,13 +199,18 @@ fn render(items: &[Item], cursor_pos: usize, stdout: &mut io::Stdout) -> io::Res
         ))
     )?;
 
-    stdout.flush()
+    stdout.flush()?;
+
+    // leading \r\n(1) + header \r\n(1) + blank \r\n(1) + items(N) + help \r\n(1) = N + 4
+    Ok(items.len() + 4)
 }
 
-fn clear_display(item_count: usize, stdout: &mut io::Stdout) -> io::Result<()> {
-    let total_lines = item_count + 4;
+fn clear_display(height: usize, stdout: &mut io::Stdout) -> io::Result<()> {
+    if height == 0 {
+        return Ok(());
+    }
     queue!(stdout, cursor::MoveToColumn(0))?;
-    for _ in 0..total_lines {
+    for _ in 0..height {
         queue!(
             stdout,
             terminal::Clear(ClearType::CurrentLine),

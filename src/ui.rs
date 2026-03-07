@@ -2,7 +2,7 @@ use std::io::{self, Write};
 
 use crossterm::{
     cursor,
-    event::{self, Event, KeyCode},
+    event::{self, Event, KeyCode, KeyEventKind},
     execute, queue,
     style::Print,
     terminal::{self, ClearType},
@@ -67,17 +67,22 @@ fn category_loop<'a>(
     filter: &mut String,
     stdout: &mut io::Stdout,
 ) -> Result<&'a str, Box<dyn std::error::Error>> {
-    render_categories(
+    let mut last_height: usize = 0;
+    last_height = render_categories(
         categories,
         show_emoji,
         &filtered_indices(categories, filter),
         *cursor_pos,
         filter,
+        last_height,
         stdout,
     )?;
 
     loop {
         if let Event::Key(key) = event::read()? {
+            if key.kind != KeyEventKind::Press {
+                continue;
+            }
             match key.code {
                 KeyCode::Up | KeyCode::BackTab => {
                     if *cursor_pos > 0 {
@@ -102,7 +107,7 @@ fn category_loop<'a>(
                     let vis = filtered_indices(categories, filter);
                     if let Some(&idx) = vis.get(*cursor_pos) {
                         let cat = &categories[idx];
-                        clear_category_display(categories, stdout)?;
+                        clear_lines(last_height, stdout)?;
                         // Print selected
                         if show_emoji {
                             queue!(
@@ -126,7 +131,7 @@ fn category_loop<'a>(
                     }
                 }
                 KeyCode::Esc => {
-                    clear_category_display(categories, stdout)?;
+                    clear_lines(last_height, stdout)?;
                     return Err("Cancelled".into());
                 }
                 _ => {}
@@ -136,7 +141,7 @@ fn category_loop<'a>(
             if *cursor_pos >= vis.len() {
                 *cursor_pos = vis.len().saturating_sub(1);
             }
-            render_categories(categories, show_emoji, &vis, *cursor_pos, filter, stdout)?;
+            last_height = render_categories(categories, show_emoji, &vis, *cursor_pos, filter, last_height, stdout)?;
         }
     }
 }
@@ -147,18 +152,21 @@ fn render_categories(
     visible: &[usize],
     cursor_pos: usize,
     filter: &str,
+    prev_height: usize,
     stdout: &mut io::Stdout,
-) -> io::Result<()> {
-    let total_lines = categories.len() + 5;
-    queue!(stdout, cursor::MoveToColumn(0))?;
-    for _ in 0..total_lines {
-        queue!(
-            stdout,
-            terminal::Clear(ClearType::CurrentLine),
-            cursor::MoveUp(1)
-        )?;
+) -> io::Result<usize> {
+    // Clear only the lines we rendered last time
+    if prev_height > 0 {
+        queue!(stdout, cursor::MoveToColumn(0))?;
+        for _ in 0..prev_height {
+            queue!(
+                stdout,
+                terminal::Clear(ClearType::CurrentLine),
+                cursor::MoveUp(1)
+            )?;
+        }
+        queue!(stdout, terminal::Clear(ClearType::CurrentLine))?;
     }
-    queue!(stdout, terminal::Clear(ClearType::CurrentLine))?;
 
     // Header + filter
     if filter.is_empty() {
@@ -228,13 +236,20 @@ fn render_categories(
         ))
     )?;
 
-    stdout.flush()
+    stdout.flush()?;
+
+    // leading \r\n(1) + header \r\n(1) + blank \r\n(1) + items + help \r\n(1) = items + 4
+    let item_lines = if visible.is_empty() { 1 } else { visible.len() };
+    Ok(item_lines + 4)
 }
 
-fn clear_category_display(categories: &[Category], stdout: &mut io::Stdout) -> io::Result<()> {
-    let total_lines = categories.len() + 5;
+/// Clear exactly `n` rendered lines from the terminal.
+fn clear_lines(n: usize, stdout: &mut io::Stdout) -> io::Result<()> {
+    if n == 0 {
+        return Ok(());
+    }
     queue!(stdout, cursor::MoveToColumn(0))?;
-    for _ in 0..total_lines {
+    for _ in 0..n {
         queue!(
             stdout,
             terminal::Clear(ClearType::CurrentLine),
@@ -285,11 +300,14 @@ fn module_loop<'a>(
     filter: &mut String,
     stdout: &mut io::Stdout,
 ) -> Result<Option<&'a str>, Box<dyn std::error::Error>> {
-    // Total display height: header(2) + blank + items + skip option + blank + help
-    render_modules(modules, &filtered_module_indices(modules, filter), *cursor_pos, filter, stdout)?;
+    let mut last_height: usize = 0;
+    last_height = render_modules(modules, &filtered_module_indices(modules, filter), *cursor_pos, filter, last_height, stdout)?;
 
     loop {
         if let Event::Key(key) = event::read()? {
+            if key.kind != KeyEventKind::Press {
+                continue;
+            }
             let visible = filtered_module_indices(modules, filter);
             let total_items = visible.len() + 1; // +1 for skip row
 
@@ -314,7 +332,7 @@ fn module_loop<'a>(
                 }
                 KeyCode::Enter => {
                     let vis = filtered_module_indices(modules, filter);
-                    clear_module_display(modules, stdout)?;
+                    clear_lines(last_height, stdout)?;
 
                     // Last item = skip (no module)
                     if *cursor_pos >= vis.len() {
@@ -341,7 +359,7 @@ fn module_loop<'a>(
                     return Ok(Some(&m.name));
                 }
                 KeyCode::Esc => {
-                    clear_module_display(modules, stdout)?;
+                    clear_lines(last_height, stdout)?;
                     return Err("Cancelled".into());
                 }
                 _ => {}
@@ -352,7 +370,7 @@ fn module_loop<'a>(
             if *cursor_pos >= total_items {
                 *cursor_pos = total_items.saturating_sub(1);
             }
-            render_modules(modules, &vis, *cursor_pos, filter, stdout)?;
+            last_height = render_modules(modules, &vis, *cursor_pos, filter, last_height, stdout)?;
         }
     }
 }
@@ -362,18 +380,20 @@ fn render_modules(
     visible: &[usize],
     cursor_pos: usize,
     filter: &str,
+    prev_height: usize,
     stdout: &mut io::Stdout,
-) -> io::Result<()> {
-    let total_lines = modules.len() + 6; // header + blank + items + skip + blank + help
-    queue!(stdout, cursor::MoveToColumn(0))?;
-    for _ in 0..total_lines {
-        queue!(
-            stdout,
-            terminal::Clear(ClearType::CurrentLine),
-            cursor::MoveUp(1)
-        )?;
+) -> io::Result<usize> {
+    if prev_height > 0 {
+        queue!(stdout, cursor::MoveToColumn(0))?;
+        for _ in 0..prev_height {
+            queue!(
+                stdout,
+                terminal::Clear(ClearType::CurrentLine),
+                cursor::MoveUp(1)
+            )?;
+        }
+        queue!(stdout, terminal::Clear(ClearType::CurrentLine))?;
     }
-    queue!(stdout, terminal::Clear(ClearType::CurrentLine))?;
 
     if filter.is_empty() {
         queue!(
@@ -450,21 +470,11 @@ fn render_modules(
         ))
     )?;
 
-    stdout.flush()
-}
+    stdout.flush()?;
 
-fn clear_module_display(modules: &[Module], stdout: &mut io::Stdout) -> io::Result<()> {
-    let total_lines = modules.len() + 6;
-    queue!(stdout, cursor::MoveToColumn(0))?;
-    for _ in 0..total_lines {
-        queue!(
-            stdout,
-            terminal::Clear(ClearType::CurrentLine),
-            cursor::MoveUp(1)
-        )?;
-    }
-    queue!(stdout, terminal::Clear(ClearType::CurrentLine))?;
-    stdout.flush()
+    // header(1) + blank(1) + items + skip(1) + blank(1) + help(1) = visible.len() + 4
+    let item_lines = if visible.is_empty() { 0 } else { visible.len() };
+    Ok(item_lines + 1 + 4) // +1 for skip row
 }
 
 pub fn prompt_message(category: &str) -> Result<String, Box<dyn std::error::Error>> {
