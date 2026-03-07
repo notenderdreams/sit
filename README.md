@@ -2,6 +2,32 @@
 
 A minimal CLI tool for structured Git commits. It provides an interactive workflow to select changed files, pick a commit category (e.g., feat, fix, docs), and compose a formatted commit message — all from the terminal.
 
+## Installation
+
+### macOS / Linux
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/notenderdreams/sit/main/installer/install.sh | bash
+```
+
+### Windows (PowerShell)
+
+```powershell
+irm https://raw.githubusercontent.com/notenderdreams/sit/main/installer/install.ps1 | iex
+```
+
+### Local build
+
+```bash
+cargo install --path .
+```
+
+Then run:
+
+```bash
+sit --help
+```
+
 ```rs
 [commit]
 template = "$type($mod): $message"
