@@ -48,7 +48,7 @@ impl FileStatus {
         }
     }
 
-    pub fn colorize<'a>(&self, text: &'a str) -> ColoredString {
+    pub fn colorize(&self, text: &str) -> ColoredString {
         match self {
             Self::Added => text.green(),
             Self::Modified => text.yellow(),

@@ -138,7 +138,12 @@ fn run_loop(
     }
 }
 
-fn render(items: &[Item], cursor_pos: usize, prev_height: usize, stdout: &mut io::Stdout) -> io::Result<usize> {
+fn render(
+    items: &[Item],
+    cursor_pos: usize,
+    prev_height: usize,
+    stdout: &mut io::Stdout,
+) -> io::Result<usize> {
     if prev_height > 0 {
         queue!(stdout, cursor::MoveToColumn(0))?;
         for _ in 0..prev_height {

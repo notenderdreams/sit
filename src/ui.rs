@@ -19,10 +19,10 @@ const DIM: &str = "\x1b[2m";
 const BG_SELECT: &str = "\x1b[48;5;236m";
 const CYAN: &str = "\x1b[36m";
 
-pub fn select_category<'a>(
-    categories: &'a [Category],
+pub fn select_category(
+    categories: &[Category],
     show_emoji: bool,
-) -> Result<&'a str, Box<dyn std::error::Error>> {
+) -> Result<&str, Box<dyn std::error::Error>> {
     let mut cursor_pos: usize = 0;
     let mut filter = String::new();
     let mut stdout = io::stdout();
@@ -141,7 +141,15 @@ fn category_loop<'a>(
             if *cursor_pos >= vis.len() {
                 *cursor_pos = vis.len().saturating_sub(1);
             }
-            last_height = render_categories(categories, show_emoji, &vis, *cursor_pos, filter, last_height, stdout)?;
+            last_height = render_categories(
+                categories,
+                show_emoji,
+                &vis,
+                *cursor_pos,
+                filter,
+                last_height,
+                stdout,
+            )?;
         }
     }
 }
@@ -260,9 +268,7 @@ fn clear_lines(n: usize, stdout: &mut io::Stdout) -> io::Result<()> {
     stdout.flush()
 }
 
-pub fn select_module<'a>(
-    modules: &'a [Module],
-) -> Result<Option<&'a str>, Box<dyn std::error::Error>> {
+pub fn select_module(modules: &[Module]) -> Result<Option<&str>, Box<dyn std::error::Error>> {
     let mut cursor_pos: usize = 0;
     let mut filter = String::new();
     let mut stdout = io::stdout();
@@ -301,7 +307,14 @@ fn module_loop<'a>(
     stdout: &mut io::Stdout,
 ) -> Result<Option<&'a str>, Box<dyn std::error::Error>> {
     let mut last_height: usize = 0;
-    last_height = render_modules(modules, &filtered_module_indices(modules, filter), *cursor_pos, filter, last_height, stdout)?;
+    last_height = render_modules(
+        modules,
+        &filtered_module_indices(modules, filter),
+        *cursor_pos,
+        filter,
+        last_height,
+        stdout,
+    )?;
 
     loop {
         if let Event::Key(key) = event::read()? {

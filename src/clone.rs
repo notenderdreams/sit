@@ -1,13 +1,16 @@
-use std::process::Command;
 use std::path::PathBuf;
+use std::process::Command;
 
 use crate::print;
 
 /// Clone a GitHub repository to the configured directory.
-pub fn clone_repo(repo_url: &str, clone_dir: &PathBuf) -> Result<PathBuf, Box<dyn std::error::Error>> {
+pub fn clone_repo(
+    repo_url: &str,
+    clone_dir: &PathBuf,
+) -> Result<PathBuf, Box<dyn std::error::Error>> {
     // Extract repo name from URL: https://github.com/user/repo or github.com/user/repo or user/repo
     let repo_name = extract_repo_name(repo_url)?;
-    
+
     // Create clone_dir if it doesn't exist
     if !clone_dir.exists() {
         print::info(&format!("Creating directory: {}", clone_dir.display()));
@@ -18,11 +21,7 @@ pub fn clone_repo(repo_url: &str, clone_dir: &PathBuf) -> Result<PathBuf, Box<dy
 
     // Check if already exists
     if target_path.exists() {
-        return Err(format!(
-            "Directory already exists: {}",
-            target_path.display()
-        )
-        .into());
+        return Err(format!("Directory already exists: {}", target_path.display()).into());
     }
 
     print::info(&format!("Cloning {} → {}", repo_url, target_path.display()));
@@ -48,10 +47,10 @@ fn extract_repo_name(url: &str) -> Result<String, Box<dyn std::error::Error>> {
     // Handle various URL formats
     let path = if url.starts_with("http://") || url.starts_with("https://") {
         // https://github.com/user/repo or https://github.com/user/repo.git
-        url.split('/').last().unwrap_or("")
+        url.split('/').next_back().unwrap_or("")
     } else if url.contains('/') {
         // user/repo or user/repo.git
-        url.split('/').last().unwrap_or("")
+        url.split('/').next_back().unwrap_or("")
     } else {
         // Just a repo name
         url
@@ -62,8 +61,8 @@ fn extract_repo_name(url: &str) -> Result<String, Box<dyn std::error::Error>> {
     }
 
     // Remove .git suffix if present
-    let name = if path.ends_with(".git") {
-        &path[..path.len() - 4]
+    let name = if let Some(stripped) = path.strip_suffix(".git") {
+        stripped
     } else {
         path
     };

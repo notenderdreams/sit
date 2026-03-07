@@ -129,17 +129,17 @@ impl Config {
         let mut cfg = Config::default();
 
         // 1. Global
-        if let Some(global_path) = global_config_path() {
-            if let Some(raw) = read_raw(&global_path) {
-                cfg.apply(raw);
-            }
+        if let Some(global_path) = global_config_path()
+            && let Some(raw) = read_raw(&global_path)
+        {
+            cfg.apply(raw);
         }
 
         // 2. Local (walk up from cwd to find .sitrc)
-        if let Some(local_path) = local_config_path() {
-            if let Some(raw) = read_raw(&local_path) {
-                cfg.apply(raw);
-            }
+        if let Some(local_path) = local_config_path()
+            && let Some(raw) = read_raw(&local_path)
+        {
+            cfg.apply(raw);
         }
 
         cfg
@@ -207,20 +207,20 @@ impl Config {
         }
 
         // Clone settings
-        if let Some(c) = raw.clone {
-            if let Some(dir_str) = c.dir {
-                // Expand ~ to home directory
-                let expanded = if dir_str.starts_with('~') {
-                    if let Some(home) = dirs::home_dir() {
-                        home.join(&dir_str[2..]) // skip ~/ or ~
-                    } else {
-                        PathBuf::from(dir_str)
-                    }
+        if let Some(c) = raw.clone
+            && let Some(dir_str) = c.dir
+        {
+            // Expand ~ to home directory
+            let expanded = if dir_str.starts_with('~') {
+                if let Some(home) = dirs::home_dir() {
+                    home.join(&dir_str[2..]) // skip ~/ or ~
                 } else {
                     PathBuf::from(dir_str)
-                };
-                self.clone.dir = expanded;
-            }
+                }
+            } else {
+                PathBuf::from(dir_str)
+            };
+            self.clone.dir = expanded;
         }
     }
 
