@@ -527,7 +527,9 @@ pub fn prompt_description() -> Result<String, Box<dyn std::error::Error>> {
 /// The user can edit it or press Enter to keep it unchanged.
 pub fn prompt_amend_message(current: &str) -> Result<String, Box<dyn std::error::Error>> {
     let render_config = RenderConfig::default().with_prompt_prefix(
-        Styled::new(" amend ").with_fg(Color::White).with_bg(Color::DarkYellow),
+        Styled::new(" amend ")
+            .with_fg(Color::White)
+            .with_bg(Color::DarkYellow),
     );
 
     let message = Text::new("")
@@ -608,10 +610,7 @@ fn render_commit_preview(
     // blank line
     queue!(stdout, Print("\r\n"))?;
     // header
-    queue!(
-        stdout,
-        Print(format!("  {BOLD}Preview commit:{RESET}\r\n"))
-    )?;
+    queue!(stdout, Print(format!("  {BOLD}Preview commit:{RESET}\r\n")))?;
     // blank
     queue!(stdout, Print("\r\n"))?;
 
@@ -637,18 +636,13 @@ fn render_commit_preview(
     let last = files.len().saturating_sub(1);
     for (i, f) in files.iter().enumerate() {
         let branch = if i == last { "└──" } else { "├──" };
-        queue!(
-            stdout,
-            Print(format!("    {DIM}{branch}{RESET} {f}\r\n"))
-        )?;
+        queue!(stdout, Print(format!("    {DIM}{branch}{RESET} {f}\r\n")))?;
     }
 
     // blank + confirm prompt (no trailing \r\n — cursor stays on this line)
     queue!(
         stdout,
-        Print(format!(
-            "\r\n  {BOLD}Confirm?{RESET} {DIM}[y/N]{RESET}  "
-        ))
+        Print(format!("\r\n  {BOLD}Confirm?{RESET} {DIM}[y/N]{RESET}  "))
     )?;
     stdout.flush()?;
 

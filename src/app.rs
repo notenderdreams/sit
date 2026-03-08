@@ -124,11 +124,11 @@ fn interactive_commit(cfg: &Config) -> Result<(), Box<dyn std::error::Error>> {
     // ── Push ─────────────────────────────────────────────────────────────────
     if cfg.commit.auto_push {
         do_push()?;
-    } else if ui::confirm_push()? {
-        if let Err(e) = do_push() {
-            print::error(&e.to_string());
-            print::blank();
-        }
+    } else if ui::confirm_push()?
+        && let Err(e) = do_push()
+    {
+        print::error(&e.to_string());
+        print::blank();
     }
 
     Ok(())
@@ -181,10 +181,7 @@ fn do_push() -> Result<(), Box<dyn std::error::Error>> {
             &format!("→ {}/{} (upstream set)", result.remote, result.branch),
         );
     } else {
-        print::success_with_details(
-            "Pushed",
-            &format!("→ {}/{}", result.remote, result.branch),
-        );
+        print::success_with_details("Pushed", &format!("→ {}/{}", result.remote, result.branch));
     }
     print::blank();
     Ok(())
@@ -200,10 +197,7 @@ fn amend_commit(cfg: &Config) -> Result<(), Box<dyn std::error::Error>> {
     let staged_files: Vec<String> = if !wip.is_empty() {
         print::blank();
         print::hint("Select additional files to include in the amended commit (Esc to skip):");
-        match picker::pick_files(wip) {
-            Ok(files) => files,
-            Err(_) => vec![], // Esc → amend message only
-        }
+        picker::pick_files(wip).unwrap_or_default()
     } else {
         vec![]
     };
@@ -249,11 +243,11 @@ fn amend_commit(cfg: &Config) -> Result<(), Box<dyn std::error::Error>> {
     // ── Push with --force-with-lease (history was rewritten) ─────────────────
     if cfg.commit.auto_push {
         do_push_force()?;
-    } else if ui::confirm_push()? {
-        if let Err(e) = do_push_force() {
-            print::error(&e.to_string());
-            print::blank();
-        }
+    } else if ui::confirm_push()?
+        && let Err(e) = do_push_force()
+    {
+        print::error(&e.to_string());
+        print::blank();
     }
 
     Ok(())
@@ -267,7 +261,10 @@ fn undo_commit() -> Result<(), Box<dyn std::error::Error>> {
     print::blank();
     print::header("Undo last commit?");
     print::blank();
-    println!("    {}", last_message.lines().next().unwrap_or(&last_message).bold());
+    println!(
+        "    {}",
+        last_message.lines().next().unwrap_or(&last_message).bold()
+    );
     print::blank();
     print::hint("Files (will remain staged):");
     let last = last_files.len().saturating_sub(1);
