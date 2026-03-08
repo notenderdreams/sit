@@ -2,7 +2,7 @@
 template = "$type($mod): $message"
 ask_description = true
 show_emoji = true
-auto_push = false
+auto_push = true
 
 
 [modules]
