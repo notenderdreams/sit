@@ -130,3 +130,82 @@ pub fn commit(message: &str) -> Result<(), Box<dyn std::error::Error>> {
         Err(format!("Commit failed: {}", String::from_utf8_lossy(&output.stderr)).into())
     }
 }
+
+/// Returns the name of the currently checked-out branch.
+pub fn current_branch() -> Result<String, Box<dyn std::error::Error>> {
+    let output = Command::new("git")
+        .args(["rev-parse", "--abbrev-ref", "HEAD"])
+        .output()?;
+
+    if !output.status.success() {
+        return Err("Not a git repository or no commits yet".into());
+    }
+
+    let branch = String::from_utf8_lossy(&output.stdout).trim().to_owned();
+    if branch == "HEAD" {
+        return Err("HEAD is detached – cannot push".into());
+    }
+    Ok(branch)
+}
+
+/// Returns (remote, remote_branch) of the configured upstream for the current branch,
+/// or `None` when no upstream is set.
+pub fn upstream() -> Option<(String, String)> {
+    // "origin/main" form
+    let out = Command::new("git")
+        .args(["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"])
+        .output()
+        .ok()?;
+
+    if !out.status.success() {
+        return None;
+    }
+
+    let s = String::from_utf8_lossy(&out.stdout).trim().to_owned();
+    // Split on first '/'
+    let (remote, branch) = s.split_once('/')?;
+    Some((remote.to_owned(), branch.to_owned()))
+}
+
+pub struct PushResult {
+    pub remote: String,
+    pub branch: String,
+    pub set_upstream: bool,
+}
+
+/// Push the current branch.  If no upstream is configured the function sets it
+/// to `origin/<branch>` automatically.
+pub fn push() -> Result<PushResult, Box<dyn std::error::Error>> {
+    let branch = current_branch()?;
+
+    let (remote, set_upstream) = if let Some((r, _)) = upstream() {
+        (r, false)
+    } else {
+        ("origin".to_owned(), true)
+    };
+
+    let mut args = vec!["push"];
+    let set_upstream_flag;
+    if set_upstream {
+        args.push("--set-upstream");
+        args.push(&remote);
+        set_upstream_flag = branch.clone();
+        args.push(&set_upstream_flag);
+    }
+
+    let output = Command::new("git").args(&args).output()?;
+
+    if output.status.success() {
+        Ok(PushResult {
+            remote,
+            branch,
+            set_upstream,
+        })
+    } else {
+        Err(format!(
+            "Push failed: {}",
+            String::from_utf8_lossy(&output.stderr).trim()
+        )
+        .into())
+    }
+}

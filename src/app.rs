@@ -31,6 +31,10 @@ enum Commands {
 
     /// Create a .sitrc with default config in the current directory
     Init,
+
+    /// Push the current branch to its upstream (sets upstream if unset)
+    #[command(alias = "p")]
+    Push,
 }
 
 pub fn run() -> Result<(), Box<dyn std::error::Error>> {
@@ -42,6 +46,7 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
         Some(Commands::Categories) => show_categories(&cfg),
         Some(Commands::Clone { repo }) => clone_repo(&cfg, &repo),
         Some(Commands::Init) => init_config(),
+        Some(Commands::Push) => push_branch(),
     }
 }
 
@@ -121,6 +126,29 @@ fn clone_repo(cfg: &Config, repo_url: &str) -> Result<(), Box<dyn std::error::Er
     // Output the cloned directory path for shell integration
     // Usage: cd $(sit clone https://github.com/user/repo)
     println!("{}", target_path.display());
+
+    Ok(())
+}
+
+fn push_branch() -> Result<(), Box<dyn std::error::Error>> {
+    let result = git::push()?;
+
+    print::blank();
+    if result.set_upstream {
+        print::success_with_details(
+            "Pushed",
+            &format!(
+                "→ {}/{} (upstream set)",
+                result.remote, result.branch
+            ),
+        );
+    } else {
+        print::success_with_details(
+            "Pushed",
+            &format!("→ {}/{}", result.remote, result.branch),
+        );
+    }
+    print::blank();
 
     Ok(())
 }
