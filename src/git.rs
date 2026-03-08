@@ -131,6 +131,48 @@ pub fn commit(message: &str) -> Result<(), Box<dyn std::error::Error>> {
     }
 }
 
+/// Amend the last commit, optionally changing the message.
+pub fn commit_amend(message: &str) -> Result<(), Box<dyn std::error::Error>> {
+    let output = Command::new("git")
+        .args(["commit", "--amend", "-m", message])
+        .output()?;
+
+    if output.status.success() {
+        Ok(())
+    } else {
+        Err(format!("Amend failed: {}", String::from_utf8_lossy(&output.stderr)).into())
+    }
+}
+
+/// Return the subject line (first line) of the last commit message.
+pub fn last_commit_message() -> Result<String, Box<dyn std::error::Error>> {
+    let output = Command::new("git")
+        .args(["log", "-1", "--format=%B"])
+        .output()?;
+
+    if !output.status.success() {
+        return Err("No commits found".into());
+    }
+
+    Ok(String::from_utf8_lossy(&output.stdout).trim().to_owned())
+}
+
+/// Return the list of files changed in HEAD.
+pub fn last_commit_files() -> Result<Vec<String>, Box<dyn std::error::Error>> {
+    let output = Command::new("git")
+        .args(["diff-tree", "--no-commit-id", "-r", "--name-only", "HEAD"])
+        .output()?;
+
+    if !output.status.success() {
+        return Err("Could not list files in last commit".into());
+    }
+
+    Ok(String::from_utf8_lossy(&output.stdout)
+        .lines()
+        .map(|l| l.to_owned())
+        .collect())
+}
+
 /// Returns the name of the currently checked-out branch.
 pub fn current_branch() -> Result<String, Box<dyn std::error::Error>> {
     let output = Command::new("git")
@@ -204,6 +246,43 @@ pub fn push() -> Result<PushResult, Box<dyn std::error::Error>> {
     } else {
         Err(format!(
             "Push failed: {}",
+            String::from_utf8_lossy(&output.stderr).trim()
+        )
+        .into())
+    }
+}
+
+/// Push the current branch with `--force-with-lease` (safe force for amends).
+/// If no upstream is configured, sets it to `origin/<branch>` automatically.
+pub fn push_force() -> Result<PushResult, Box<dyn std::error::Error>> {
+    let branch = current_branch()?;
+
+    let (remote, set_upstream) = if let Some((r, _)) = upstream() {
+        (r, false)
+    } else {
+        ("origin".to_owned(), true)
+    };
+
+    let mut args = vec!["push", "--force-with-lease"];
+    let set_upstream_flag;
+    if set_upstream {
+        args.push("--set-upstream");
+        args.push(&remote);
+        set_upstream_flag = branch.clone();
+        args.push(&set_upstream_flag);
+    }
+
+    let output = Command::new("git").args(&args).output()?;
+
+    if output.status.success() {
+        Ok(PushResult {
+            remote,
+            branch,
+            set_upstream,
+        })
+    } else {
+        Err(format!(
+            "Force push failed: {}",
             String::from_utf8_lossy(&output.stderr).trim()
         )
         .into())

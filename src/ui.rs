@@ -523,6 +523,26 @@ pub fn prompt_description() -> Result<String, Box<dyn std::error::Error>> {
     Ok(desc)
 }
 
+/// Prompt for a commit message pre-filled with the last commit's message.
+/// The user can edit it or press Enter to keep it unchanged.
+pub fn prompt_amend_message(current: &str) -> Result<String, Box<dyn std::error::Error>> {
+    let render_config = RenderConfig::default().with_prompt_prefix(
+        Styled::new(" amend ").with_fg(Color::White).with_bg(Color::DarkYellow),
+    );
+
+    let message = Text::new("")
+        .with_render_config(render_config)
+        .with_initial_value(current)
+        .prompt()?;
+
+    let message = message.trim().to_string();
+    if message.is_empty() {
+        return Err("Commit message cannot be empty".into());
+    }
+
+    Ok(message)
+}
+
 pub fn print_success(commit_msg: &str) {
     crate::print::blank();
     crate::print::success_with_details("Committed", commit_msg);

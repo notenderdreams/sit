@@ -35,6 +35,10 @@ enum Commands {
     /// Push the current branch to its upstream (sets upstream if unset)
     #[command(alias = "p")]
     Push,
+
+    /// Amend the last commit (message and/or staged changes)
+    #[command(alias = "a")]
+    Amend,
 }
 
 pub fn run() -> Result<(), Box<dyn std::error::Error>> {
@@ -47,6 +51,7 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
         Some(Commands::Clone { repo }) => clone_repo(&cfg, &repo),
         Some(Commands::Init) => init_config(),
         Some(Commands::Push) => push_branch(),
+        Some(Commands::Amend) => amend_commit(&cfg),
     }
 }
 
@@ -174,6 +179,92 @@ fn do_push() -> Result<(), Box<dyn std::error::Error>> {
         print::success_with_details(
             "Pushed",
             &format!("→ {}/{}", result.remote, result.branch),
+        );
+    }
+    print::blank();
+    Ok(())
+}
+
+fn amend_commit(cfg: &Config) -> Result<(), Box<dyn std::error::Error>> {
+    // ── Fetch the last commit's message and file list ────────────────────────
+    let last_message = git::last_commit_message()?;
+    let last_files = git::last_commit_files()?;
+
+    // ── Optionally stage additional working-tree changes ─────────────────────
+    let wip = git::get_status()?;
+    let staged_files: Vec<String> = if !wip.is_empty() {
+        print::blank();
+        print::hint("Select additional files to include in the amended commit (Esc to skip):");
+        match picker::pick_files(wip) {
+            Ok(files) => files,
+            Err(_) => vec![], // Esc → amend message only
+        }
+    } else {
+        vec![]
+    };
+
+    if !staged_files.is_empty() {
+        git::stage_files(&staged_files)?;
+    }
+
+    // ── Build the file list shown in the preview ──────────────────────────────
+    let mut preview_files = last_files;
+    for f in &staged_files {
+        if !preview_files.contains(f) {
+            preview_files.push(f.clone());
+        }
+    }
+
+    // ── Let the user edit the commit message (pre-filled) ────────────────────
+    let new_message = ui::prompt_amend_message(&last_message)?;
+
+    // ── Preview & confirm ────────────────────────────────────────────────────
+    let subject = new_message.lines().next().unwrap_or(&new_message);
+
+    if !ui::confirm_commit(subject, "", &preview_files)? {
+        if !staged_files.is_empty() {
+            let _ = std::process::Command::new("git")
+                .args(["restore", "--staged", "--"])
+                .args(&staged_files)
+                .output();
+        }
+        print::blank();
+        print::hint("Aborted");
+        print::blank();
+        return Ok(());
+    }
+
+    // ── Amend ────────────────────────────────────────────────────────────────
+    git::commit_amend(&new_message)?;
+
+    print::blank();
+    print::success_with_details("Amended", &new_message);
+    print::blank();
+
+    // ── Push with --force-with-lease (history was rewritten) ─────────────────
+    if cfg.commit.auto_push {
+        do_push_force()?;
+    } else if ui::confirm_push()? {
+        if let Err(e) = do_push_force() {
+            print::error(&e.to_string());
+            print::blank();
+        }
+    }
+
+    Ok(())
+}
+
+fn do_push_force() -> Result<(), Box<dyn std::error::Error>> {
+    let result = git::push_force()?;
+    if result.set_upstream {
+        print::success_with_details(
+            "Pushed",
+            &format!("→ {}/{} (upstream set)", result.remote, result.branch),
+        );
+    } else {
+        print::success_with_details(
+            "Pushed",
+            &format!("→ {}/{} (force-with-lease)", result.remote, result.branch),
         );
     }
     print::blank();
