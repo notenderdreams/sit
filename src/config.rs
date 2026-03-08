@@ -42,6 +42,8 @@ struct RawCommit {
     ask_description: Option<bool>,
     /// Whether to show emoji in the category picker
     show_emoji: Option<bool>,
+    /// Automatically push after every commit without asking
+    auto_push: Option<bool>,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -90,6 +92,8 @@ pub struct CommitConfig {
     pub ask_description: bool,
     /// Show emoji column in the picker
     pub show_emoji: bool,
+    /// Push automatically after every commit (skip the "Push now?" prompt)
+    pub auto_push: bool,
 }
 
 impl Default for CommitConfig {
@@ -98,6 +102,7 @@ impl Default for CommitConfig {
             template: "$type($mod): $message".into(),
             ask_description: true,
             show_emoji: true,
+            auto_push: false,
         }
     }
 }
@@ -157,6 +162,9 @@ impl Config {
             }
             if let Some(v) = c.show_emoji {
                 self.commit.show_emoji = v;
+            }
+            if let Some(v) = c.auto_push {
+                self.commit.auto_push = v;
             }
         }
 
@@ -283,6 +291,7 @@ impl Config {
 template        = "$type($mod): $message"
 ask_description = true
 show_emoji      = true
+auto_push       = false
 
 [clone]
 dir = "~/projects"

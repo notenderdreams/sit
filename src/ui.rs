@@ -529,6 +529,147 @@ pub fn print_success(commit_msg: &str) {
     crate::print::blank();
 }
 
+// ── Confirm prompts ──────────────────────────────────────────────────────────
+
+/// Show a commit preview and ask the user to confirm with y/N.
+/// Returns `true` if the user pressed y/Y, `false` on n/N/Esc/any other key.
+pub fn confirm_commit(
+    subject: &str,
+    emoji: &str,
+    files: &[String],
+) -> Result<bool, Box<dyn std::error::Error>> {
+    let mut stdout = io::stdout();
+    terminal::enable_raw_mode()?;
+    execute!(stdout, cursor::Hide)?;
+
+    let result = confirm_commit_loop(subject, emoji, files, &mut stdout);
+
+    execute!(stdout, cursor::Show)?;
+    terminal::disable_raw_mode()?;
+    result
+}
+
+fn confirm_commit_loop(
+    subject: &str,
+    emoji: &str,
+    files: &[String],
+    stdout: &mut io::Stdout,
+) -> Result<bool, Box<dyn std::error::Error>> {
+    let line_count = render_commit_preview(subject, emoji, files, stdout)?;
+
+    loop {
+        if let Event::Key(key) = event::read()? {
+            if key.kind != KeyEventKind::Press {
+                continue;
+            }
+            let confirmed = matches!(key.code, KeyCode::Char('y') | KeyCode::Char('Y'));
+            // On any decision key (or any key at all), clear preview and return
+            match key.code {
+                KeyCode::Char('y') | KeyCode::Char('Y') => {
+                    clear_lines(line_count, stdout)?;
+                    return Ok(confirmed);
+                }
+                KeyCode::Char('n') | KeyCode::Char('N') | KeyCode::Esc | KeyCode::Enter => {
+                    clear_lines(line_count, stdout)?;
+                    return Ok(false);
+                }
+                _ => {}
+            }
+        }
+    }
+}
+
+fn render_commit_preview(
+    subject: &str,
+    emoji: &str,
+    files: &[String],
+    stdout: &mut io::Stdout,
+) -> io::Result<usize> {
+    // blank line
+    queue!(stdout, Print("\r\n"))?;
+    // header
+    queue!(
+        stdout,
+        Print(format!("  {BOLD}Preview commit:{RESET}\r\n"))
+    )?;
+    // blank
+    queue!(stdout, Print("\r\n"))?;
+
+    // commit subject with emoji
+    let trimmed_emoji = emoji.trim();
+    if trimmed_emoji.is_empty() {
+        queue!(
+            stdout,
+            Print(format!("    {CYAN}{BOLD}{subject}{RESET}\r\n"))
+        )?;
+    } else {
+        queue!(
+            stdout,
+            Print(format!("    {emoji}{CYAN}{BOLD}{subject}{RESET}\r\n"))
+        )?;
+    }
+
+    // blank
+    queue!(stdout, Print("\r\n"))?;
+    // files header
+    queue!(stdout, Print(format!("  {BOLD}Files:{RESET}\r\n")))?;
+
+    let last = files.len().saturating_sub(1);
+    for (i, f) in files.iter().enumerate() {
+        let branch = if i == last { "└──" } else { "├──" };
+        queue!(
+            stdout,
+            Print(format!("    {DIM}{branch}{RESET} {f}\r\n"))
+        )?;
+    }
+
+    // blank + confirm prompt (no trailing \r\n — cursor stays on this line)
+    queue!(
+        stdout,
+        Print(format!(
+            "\r\n  {BOLD}Confirm?{RESET} {DIM}[y/N]{RESET}  "
+        ))
+    )?;
+    stdout.flush()?;
+
+    // Count of \r\n emitted:
+    //   1 (leading blank) + 1 (header) + 1 (blank) + 1 (subject) + 1 (blank)
+    //   + 1 (Files:) + files.len() (each file) + 1 (leading \r\n of Confirm line)
+    // = 7 + files.len()
+    Ok(7 + files.len())
+}
+
+/// Ask "Push now? [y/N]" with a single keypress.
+/// Returns `true` if the user pressed y/Y.
+pub fn confirm_push() -> Result<bool, Box<dyn std::error::Error>> {
+    let mut stdout = io::stdout();
+    terminal::enable_raw_mode()?;
+    execute!(stdout, cursor::Hide)?;
+
+    // Print prompt (1 leading \r\n → 1 \r\n total, cursor on prompt line)
+    queue!(
+        stdout,
+        Print(format!("\r\n  {BOLD}Push now?{RESET} {DIM}[y/N]{RESET}  "))
+    )?;
+    stdout.flush()?;
+
+    let confirmed = loop {
+        if let Event::Key(key) = event::read()? {
+            if key.kind != KeyEventKind::Press {
+                continue;
+            }
+            break matches!(key.code, KeyCode::Char('y') | KeyCode::Char('Y'));
+        }
+    };
+
+    // Clear the 2 lines we drew (blank + prompt line)
+    clear_lines(1, &mut stdout)?;
+
+    execute!(stdout, cursor::Show)?;
+    terminal::disable_raw_mode()?;
+    Ok(confirmed)
+}
+
 pub fn print_error(msg: &str) {
     crate::print::blank();
     crate::print::error(msg);

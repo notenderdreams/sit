@@ -86,12 +86,40 @@ fn interactive_commit(cfg: &Config) -> Result<(), Box<dyn std::error::Error>> {
 
     let full_message = cfg.format_commit(category, module, &message, &description);
 
+    // ── Preview & confirm ────────────────────────────────────────────────────
+    let emoji = cfg
+        .categories
+        .iter()
+        .find(|c| c.name == category)
+        .map(|c| c.emoji.as_str())
+        .unwrap_or("");
+
+    let subject = full_message.lines().next().unwrap_or(&full_message);
+
+    if !ui::confirm_commit(subject, emoji, &selected_files)? {
+        print::blank();
+        print::hint("Aborted");
+        print::blank();
+        return Ok(());
+    }
+
+    // ── Commit ───────────────────────────────────────────────────────────────
     git::stage_files(&selected_files)?;
     git::commit(&full_message)?;
 
     print::blank();
     print::success_with_details("Committed", &full_message);
     print::blank();
+
+    // ── Push ─────────────────────────────────────────────────────────────────
+    if cfg.commit.auto_push {
+        do_push()?;
+    } else if ui::confirm_push()? {
+        if let Err(e) = do_push() {
+            print::error(&e.to_string());
+            print::blank();
+        }
+    }
 
     Ok(())
 }
@@ -131,16 +159,16 @@ fn clone_repo(cfg: &Config, repo_url: &str) -> Result<(), Box<dyn std::error::Er
 }
 
 fn push_branch() -> Result<(), Box<dyn std::error::Error>> {
-    let result = git::push()?;
-
     print::blank();
+    do_push()
+}
+
+fn do_push() -> Result<(), Box<dyn std::error::Error>> {
+    let result = git::push()?;
     if result.set_upstream {
         print::success_with_details(
             "Pushed",
-            &format!(
-                "→ {}/{} (upstream set)",
-                result.remote, result.branch
-            ),
+            &format!("→ {}/{} (upstream set)", result.remote, result.branch),
         );
     } else {
         print::success_with_details(
@@ -149,7 +177,6 @@ fn push_branch() -> Result<(), Box<dyn std::error::Error>> {
         );
     }
     print::blank();
-
     Ok(())
 }
 
