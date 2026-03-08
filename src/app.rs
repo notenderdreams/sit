@@ -39,6 +39,10 @@ enum Commands {
     /// Amend the last commit (message and/or staged changes)
     #[command(alias = "a")]
     Amend,
+
+    /// Undo the last commit (soft reset – changes stay staged)
+    #[command(alias = "u")]
+    Undo,
 }
 
 pub fn run() -> Result<(), Box<dyn std::error::Error>> {
@@ -52,6 +56,7 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
         Some(Commands::Init) => init_config(),
         Some(Commands::Push) => push_branch(),
         Some(Commands::Amend) => amend_commit(&cfg),
+        Some(Commands::Undo) => undo_commit(),
     }
 }
 
@@ -250,6 +255,39 @@ fn amend_commit(cfg: &Config) -> Result<(), Box<dyn std::error::Error>> {
             print::blank();
         }
     }
+
+    Ok(())
+}
+
+fn undo_commit() -> Result<(), Box<dyn std::error::Error>> {
+    let last_message = git::last_commit_message()?;
+    let last_files = git::last_commit_files()?;
+
+    // Show what will be undone
+    print::blank();
+    print::header("Undo last commit?");
+    print::blank();
+    println!("    {}", last_message.lines().next().unwrap_or(&last_message).bold());
+    print::blank();
+    print::hint("Files (will remain staged):");
+    let last = last_files.len().saturating_sub(1);
+    for (i, f) in last_files.iter().enumerate() {
+        let branch = if i == last { "└──" } else { "├──" };
+        println!("    \x1b[2m{branch}\x1b[0m {f}");
+    }
+    print::blank();
+
+    if !ui::confirm_undo()? {
+        print::hint("Aborted");
+        print::blank();
+        return Ok(());
+    }
+
+    git::soft_reset()?;
+
+    print::blank();
+    print::success("Undone — changes are staged and ready to re-commit");
+    print::blank();
 
     Ok(())
 }

@@ -173,6 +173,23 @@ pub fn last_commit_files() -> Result<Vec<String>, Box<dyn std::error::Error>> {
         .collect())
 }
 
+/// Undo the last commit with a soft reset (changes stay staged).
+pub fn soft_reset() -> Result<(), Box<dyn std::error::Error>> {
+    let output = Command::new("git")
+        .args(["reset", "--soft", "HEAD~1"])
+        .output()?;
+
+    if output.status.success() {
+        Ok(())
+    } else {
+        Err(format!(
+            "Reset failed: {}",
+            String::from_utf8_lossy(&output.stderr).trim()
+        )
+        .into())
+    }
+}
+
 /// Returns the name of the currently checked-out branch.
 pub fn current_branch() -> Result<String, Box<dyn std::error::Error>> {
     let output = Command::new("git")

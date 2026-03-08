@@ -690,6 +690,34 @@ pub fn confirm_push() -> Result<bool, Box<dyn std::error::Error>> {
     Ok(confirmed)
 }
 
+/// Ask "Confirm undo? [y/N]" with a single keypress.
+pub fn confirm_undo() -> Result<bool, Box<dyn std::error::Error>> {
+    let mut stdout = io::stdout();
+    terminal::enable_raw_mode()?;
+    execute!(stdout, cursor::Hide)?;
+
+    queue!(
+        stdout,
+        Print(format!("  {BOLD}Confirm undo?{RESET} {DIM}[y/N]{RESET}  "))
+    )?;
+    stdout.flush()?;
+
+    let confirmed = loop {
+        if let Event::Key(key) = event::read()? {
+            if key.kind != KeyEventKind::Press {
+                continue;
+            }
+            break matches!(key.code, KeyCode::Char('y') | KeyCode::Char('Y'));
+        }
+    };
+
+    clear_lines(1, &mut stdout)?;
+
+    execute!(stdout, cursor::Show)?;
+    terminal::disable_raw_mode()?;
+    Ok(confirmed)
+}
+
 pub fn print_error(msg: &str) {
     crate::print::blank();
     crate::print::error(msg);
