@@ -584,14 +584,12 @@ fn confirm_commit_loop(
             if key.kind != KeyEventKind::Press {
                 continue;
             }
-            let confirmed = matches!(key.code, KeyCode::Char('y') | KeyCode::Char('Y'));
-            // On any decision key (or any key at all), clear preview and return
             match key.code {
-                KeyCode::Char('y') | KeyCode::Char('Y') => {
+                KeyCode::Char('y') | KeyCode::Char('Y') | KeyCode::Enter => {
                     clear_lines(line_count, stdout)?;
-                    return Ok(confirmed);
+                    return Ok(true);
                 }
-                KeyCode::Char('n') | KeyCode::Char('N') | KeyCode::Esc | KeyCode::Enter => {
+                KeyCode::Char('n') | KeyCode::Char('N') | KeyCode::Esc => {
                     clear_lines(line_count, stdout)?;
                     return Ok(false);
                 }
@@ -642,7 +640,7 @@ fn render_commit_preview(
     // blank + confirm prompt (no trailing \r\n — cursor stays on this line)
     queue!(
         stdout,
-        Print(format!("\r\n  {BOLD}Confirm?{RESET} {DIM}[y/N]{RESET}  "))
+        Print(format!("\r\n  {BOLD}Confirm?{RESET} {DIM}[Y/n]{RESET}  "))
     )?;
     stdout.flush()?;
 
@@ -663,7 +661,7 @@ pub fn confirm_push() -> Result<bool, Box<dyn std::error::Error>> {
     // Print prompt (1 leading \r\n → 1 \r\n total, cursor on prompt line)
     queue!(
         stdout,
-        Print(format!("\r\n  {BOLD}Push now?{RESET} {DIM}[y/N]{RESET}  "))
+        Print(format!("\r\n  {BOLD}Push now?{RESET} {DIM}[Y/n]{RESET}  "))
     )?;
     stdout.flush()?;
 
@@ -672,7 +670,10 @@ pub fn confirm_push() -> Result<bool, Box<dyn std::error::Error>> {
             if key.kind != KeyEventKind::Press {
                 continue;
             }
-            break matches!(key.code, KeyCode::Char('y') | KeyCode::Char('Y'));
+            break matches!(
+                key.code,
+                KeyCode::Char('y') | KeyCode::Char('Y') | KeyCode::Enter
+            );
         }
     };
 
