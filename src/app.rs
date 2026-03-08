@@ -28,6 +28,9 @@ enum Commands {
         #[arg(value_name = "URL")]
         repo: String,
     },
+
+    /// Create a .sitrc with default config in the current directory
+    Init,
 }
 
 pub fn run() -> Result<(), Box<dyn std::error::Error>> {
@@ -38,6 +41,7 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
         None | Some(Commands::Commit) => interactive_commit(&cfg),
         Some(Commands::Categories) => show_categories(&cfg),
         Some(Commands::Clone { repo }) => clone_repo(&cfg, &repo),
+        Some(Commands::Init) => init_config(),
     }
 }
 
@@ -117,6 +121,23 @@ fn clone_repo(cfg: &Config, repo_url: &str) -> Result<(), Box<dyn std::error::Er
     // Output the cloned directory path for shell integration
     // Usage: cd $(sit clone https://github.com/user/repo)
     println!("{}", target_path.display());
+
+    Ok(())
+}
+
+fn init_config() -> Result<(), Box<dyn std::error::Error>> {
+    let path = std::path::Path::new(".sitrc");
+
+    if path.exists() {
+        return Err(".sitrc already exists in the current directory".into());
+    }
+
+    std::fs::write(path, Config::default_toml())?;
+
+    print::blank();
+    print::success("Created .sitrc with default config");
+    print::hint("Edit it to customise categories, modules, and commit settings.");
+    print::blank();
 
     Ok(())
 }

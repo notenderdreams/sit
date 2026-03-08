@@ -276,6 +276,37 @@ impl Config {
     pub fn has_modules(&self) -> bool {
         !self.modules.is_empty()
     }
+
+    /// Returns the default `.sitrc` TOML content written by `sit init`.
+    pub fn default_toml() -> &'static str {
+        r#"[commit]
+template        = "$type($mod): $message"
+ask_description = true
+show_emoji      = true
+
+[clone]
+dir = "~/projects"
+
+[categories]
+feat     = { emoji = "✨",  desc = "Add a new feature" }
+fix      = { emoji = "🐛",  desc = "Fix a bug" }
+docs     = { emoji = "📚", desc = "Documentation changes" }
+style    = { emoji = "🎨", desc = "Code style / formatting" }
+refactor = { emoji = "♻️ ", desc = "Refactor code" }
+perf     = { emoji = "⚡", desc = "Performance improvement" }
+test     = { emoji = "🧪", desc = "Add or update tests" }
+build    = { emoji = "📦", desc = "Build system changes" }
+ci       = { emoji = "⚙️ ", desc = "CI/CD changes" }
+chore    = { emoji = "🧹", desc = "Maintenance / chores" }
+revert   = { emoji = "⏪", desc = "Revert a commit" }
+wip      = { emoji = "🚧", desc = "Work in progress" }
+none     = { emoji = "── ", desc = "No category prefix" }
+
+# [modules]
+# core = "Core logic"
+# cli  = "CLI interface"
+"#
+    }
 }
 
 // ── Helpers ──────────────────────────────────────────────
