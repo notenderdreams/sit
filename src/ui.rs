@@ -12,6 +12,7 @@ use inquire::ui::{Color, RenderConfig, Styled};
 
 use crate::categories::Category;
 use crate::config::Module;
+use crate::git::Branch;
 
 const RESET: &str = "\x1b[0m";
 const BOLD: &str = "\x1b[1m";
@@ -282,6 +283,236 @@ pub fn select_module(modules: &[Module]) -> Result<Option<&str>, Box<dyn std::er
     terminal::disable_raw_mode()?;
 
     result
+}
+
+pub fn select_branch(branches: &[Branch]) -> Result<String, Box<dyn std::error::Error>> {
+    let mut cursor_pos: usize = 0;
+    let mut filter = String::new();
+    let mut stdout = io::stdout();
+
+    terminal::enable_raw_mode()?;
+    execute!(stdout, cursor::Hide)?;
+
+    let result = branch_loop(branches, &mut cursor_pos, &mut filter, &mut stdout);
+
+    execute!(stdout, cursor::Show)?;
+    terminal::disable_raw_mode()?;
+
+    result
+}
+
+fn filtered_branch_indices(branches: &[Branch], filter: &str) -> Vec<usize> {
+    if filter.is_empty() {
+        (0..branches.len()).collect()
+    } else {
+        let f = filter.to_lowercase();
+        branches
+            .iter()
+            .enumerate()
+            .filter(|(_, b)| b.name.to_lowercase().contains(&f))
+            .map(|(i, _)| i)
+            .collect()
+    }
+}
+
+fn has_exact_branch_match(branches: &[Branch], value: &str) -> bool {
+    branches.iter().any(|b| b.name == value)
+}
+
+fn branch_loop(
+    branches: &[Branch],
+    cursor_pos: &mut usize,
+    filter: &mut String,
+    stdout: &mut io::Stdout,
+) -> Result<String, Box<dyn std::error::Error>> {
+    let mut last_height: usize = 0;
+    let mut vis = filtered_branch_indices(branches, filter);
+    let mut can_create = !filter.trim().is_empty() && !has_exact_branch_match(branches, filter);
+
+    last_height = render_branches(branches, &vis, *cursor_pos, filter, can_create, last_height, stdout)?;
+
+    loop {
+        if let Event::Key(key) = event::read()? {
+            if key.kind != KeyEventKind::Press {
+                continue;
+            }
+
+            let total_items = vis.len() + usize::from(can_create);
+
+            match key.code {
+                KeyCode::Up | KeyCode::BackTab => {
+                    if *cursor_pos > 0 {
+                        *cursor_pos -= 1;
+                    }
+                }
+                KeyCode::Down | KeyCode::Tab => {
+                    if *cursor_pos < total_items.saturating_sub(1) {
+                        *cursor_pos += 1;
+                    }
+                }
+                KeyCode::Backspace => {
+                    filter.pop();
+                    *cursor_pos = 0;
+                }
+                KeyCode::Char(ch) => {
+                    filter.push(ch);
+                    *cursor_pos = 0;
+                }
+                KeyCode::Enter => {
+                    clear_lines(last_height, stdout)?;
+                    if let Some(&idx) = vis.get(*cursor_pos) {
+                        let selected = &branches[idx].name;
+                        queue!(
+                            stdout,
+                            Print(format!(
+                                "\r\n  {BOLD}  Branch{RESET}  {CYAN}{selected}{RESET}\r\n\r\n"
+                            ))
+                        )?;
+                        stdout.flush()?;
+                        return Ok(selected.clone());
+                    }
+
+                    if can_create {
+                        let new_branch = filter.trim().to_owned();
+                        queue!(
+                            stdout,
+                            Print(format!(
+                                "\r\n  {BOLD}  Branch{RESET}  {CYAN}{new_branch}{RESET} {DIM}(new){RESET}\r\n\r\n"
+                            ))
+                        )?;
+                        stdout.flush()?;
+                        return Ok(new_branch);
+                    }
+                }
+                KeyCode::Esc => {
+                    clear_lines(last_height, stdout)?;
+                    return Err("Cancelled".into());
+                }
+                _ => {}
+            }
+
+            vis = filtered_branch_indices(branches, filter);
+            can_create = !filter.trim().is_empty() && !has_exact_branch_match(branches, filter);
+
+            let total_items = vis.len() + usize::from(can_create);
+            if *cursor_pos >= total_items {
+                *cursor_pos = total_items.saturating_sub(1);
+            }
+
+            last_height = render_branches(
+                branches,
+                &vis,
+                *cursor_pos,
+                filter,
+                can_create,
+                last_height,
+                stdout,
+            )?;
+        }
+    }
+}
+
+fn render_branches(
+    branches: &[Branch],
+    visible: &[usize],
+    cursor_pos: usize,
+    filter: &str,
+    can_create: bool,
+    prev_height: usize,
+    stdout: &mut io::Stdout,
+) -> io::Result<usize> {
+    if prev_height > 0 {
+        queue!(stdout, cursor::MoveToColumn(0))?;
+        for _ in 0..prev_height {
+            queue!(
+                stdout,
+                terminal::Clear(ClearType::CurrentLine),
+                cursor::MoveUp(1)
+            )?;
+        }
+        queue!(stdout, terminal::Clear(ClearType::CurrentLine))?;
+    }
+
+    if filter.is_empty() {
+        queue!(
+            stdout,
+            Print(format!(
+                "\r\n  {BOLD}  Branch{RESET} {DIM}(type to search or create){RESET}\r\n\r\n"
+            ))
+        )?;
+    } else {
+        queue!(
+            stdout,
+            Print(format!(
+                "\r\n  {BOLD}  Branch{RESET}  {DIM}/{RESET}{CYAN}{filter}{RESET}\r\n\r\n"
+            ))
+        )?;
+    }
+
+    let max_name = branches.iter().map(|b| b.name.len()).max().unwrap_or(6).max(6);
+    let mut item_lines = 0usize;
+
+    for (vi, &bi) in visible.iter().enumerate() {
+        let branch = &branches[bi];
+        let is_cursor = vi == cursor_pos;
+        let bg = if is_cursor { BG_SELECT } else { "" };
+        let end_bg = if is_cursor { RESET } else { "" };
+        let pointer = if is_cursor {
+            format!("{CYAN}›{RESET}")
+        } else {
+            " ".to_string()
+        };
+        let current = if branch.is_current {
+            format!("{DIM}(current){RESET}")
+        } else {
+            String::new()
+        };
+
+        queue!(
+            stdout,
+            Print(format!(
+                "  {bg} {pointer}  {BOLD}{:<width$}{RESET}{bg}  {current}{end_bg}{RESET}\r\n",
+                branch.name,
+                width = max_name
+            ))
+        )?;
+        item_lines += 1;
+    }
+
+    if can_create {
+        let create_idx = visible.len();
+        let is_cursor = cursor_pos == create_idx;
+        let bg = if is_cursor { BG_SELECT } else { "" };
+        let end_bg = if is_cursor { RESET } else { "" };
+        let pointer = if is_cursor {
+            format!("{CYAN}›{RESET}")
+        } else {
+            " ".to_string()
+        };
+        queue!(
+            stdout,
+            Print(format!(
+                "  {bg} {pointer}  {DIM}create branch:{RESET} {CYAN}{}{end_bg}{RESET}\r\n",
+                filter.trim()
+            ))
+        )?;
+        item_lines += 1;
+    }
+
+    if item_lines == 0 {
+        queue!(stdout, Print(format!("    {DIM}no matches{RESET}\r\n")))?;
+        item_lines = 1;
+    }
+
+    queue!(
+        stdout,
+        Print(format!(
+            "\r\n  {DIM}↑↓{RESET} move  {DIM}type{RESET} search  {DIM}enter{RESET} select  {DIM}esc{RESET} cancel"
+        ))
+    )?;
+
+    stdout.flush()?;
+    Ok(item_lines + 4)
 }
 
 fn filtered_module_indices(modules: &[Module], filter: &str) -> Vec<usize> {
@@ -678,6 +909,35 @@ pub fn confirm_push() -> Result<bool, Box<dyn std::error::Error>> {
     };
 
     // Clear the 2 lines we drew (blank + prompt line)
+    clear_lines(1, &mut stdout)?;
+
+    execute!(stdout, cursor::Show)?;
+    terminal::disable_raw_mode()?;
+    Ok(confirmed)
+}
+
+pub fn confirm_create_branch(name: &str) -> Result<bool, Box<dyn std::error::Error>> {
+    let mut stdout = io::stdout();
+    terminal::enable_raw_mode()?;
+    execute!(stdout, cursor::Hide)?;
+
+    queue!(
+        stdout,
+        Print(format!(
+            "\r\n  {BOLD}Create branch{RESET} {CYAN}{name}{RESET}? {DIM}[y/N]{RESET}  "
+        ))
+    )?;
+    stdout.flush()?;
+
+    let confirmed = loop {
+        if let Event::Key(key) = event::read()? {
+            if key.kind != KeyEventKind::Press {
+                continue;
+            }
+            break matches!(key.code, KeyCode::Char('y') | KeyCode::Char('Y'));
+        }
+    };
+
     clear_lines(1, &mut stdout)?;
 
     execute!(stdout, cursor::Show)?;

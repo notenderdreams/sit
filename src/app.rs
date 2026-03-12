@@ -29,6 +29,10 @@ enum Commands {
         repo: String,
     },
 
+    /// Switch branches with a searchable picker
+    #[command(alias = "b")]
+    Branch,
+
     /// Create a .sitrc with default config in the current directory
     Init,
 
@@ -53,11 +57,38 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
         None | Some(Commands::Commit) => interactive_commit(&cfg),
         Some(Commands::Categories) => show_categories(&cfg),
         Some(Commands::Clone { repo }) => clone_repo(&cfg, &repo),
+        Some(Commands::Branch) => switch_branch(),
         Some(Commands::Init) => init_config(),
         Some(Commands::Push) => push_branch(),
         Some(Commands::Amend) => amend_commit(&cfg),
         Some(Commands::Undo) => undo_commit(),
     }
+}
+
+fn switch_branch() -> Result<(), Box<dyn std::error::Error>> {
+    let branches = git::list_local_branches()?;
+    let selected = ui::select_branch(&branches)?;
+
+    if branches.iter().any(|b| b.name == selected) {
+        git::switch_branch(&selected)?;
+        print::blank();
+        print::success_with_details("Switched", &format!("→ {selected}"));
+        print::blank();
+        return Ok(());
+    }
+
+    if !ui::confirm_create_branch(&selected)? {
+        print::blank();
+        print::hint("Aborted");
+        print::blank();
+        return Ok(());
+    }
+
+    git::create_and_switch_branch(&selected)?;
+    print::blank();
+    print::success_with_details("Created and switched", &format!("→ {selected}"));
+    print::blank();
+    Ok(())
 }
 
 fn interactive_commit(cfg: &Config) -> Result<(), Box<dyn std::error::Error>> {

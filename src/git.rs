@@ -232,6 +232,70 @@ pub struct PushResult {
     pub set_upstream: bool,
 }
 
+#[derive(Debug, Clone)]
+pub struct Branch {
+    pub name: String,
+    pub is_current: bool,
+}
+
+pub fn list_local_branches() -> Result<Vec<Branch>, Box<dyn std::error::Error>> {
+    let output = Command::new("git")
+        .args(["branch", "--format=%(refname:short)"])
+        .output()?;
+
+    if !output.status.success() {
+        return Err(format!(
+            "Could not list branches: {}",
+            String::from_utf8_lossy(&output.stderr).trim()
+        )
+        .into());
+    }
+
+    let current = current_branch().ok();
+    let mut branches: Vec<Branch> = String::from_utf8_lossy(&output.stdout)
+        .lines()
+        .map(str::trim)
+        .filter(|name| !name.is_empty())
+        .map(|name| Branch {
+            name: name.to_owned(),
+            is_current: current.as_deref() == Some(name),
+        })
+        .collect();
+
+    branches.sort_by(|a, b| a.name.cmp(&b.name));
+    Ok(branches)
+}
+
+pub fn switch_branch(name: &str) -> Result<(), Box<dyn std::error::Error>> {
+    let output = Command::new("git").args(["switch", name]).output()?;
+
+    if output.status.success() {
+        Ok(())
+    } else {
+        Err(format!(
+            "Failed to switch branch: {}",
+            String::from_utf8_lossy(&output.stderr).trim()
+        )
+        .into())
+    }
+}
+
+pub fn create_and_switch_branch(name: &str) -> Result<(), Box<dyn std::error::Error>> {
+    let output = Command::new("git")
+        .args(["switch", "-c", name])
+        .output()?;
+
+    if output.status.success() {
+        Ok(())
+    } else {
+        Err(format!(
+            "Failed to create branch: {}",
+            String::from_utf8_lossy(&output.stderr).trim()
+        )
+        .into())
+    }
+}
+
 /// Push the current branch.  If no upstream is configured the function sets it
 /// to `origin/<branch>` automatically.
 pub fn push() -> Result<PushResult, Box<dyn std::error::Error>> {
