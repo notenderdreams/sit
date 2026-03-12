@@ -32,7 +32,6 @@ sit --help
 [commit]
 template = "$type($mod): $message"
 ask_description = true
-show_emoji = true
 
 [modules]
 core     = "Core logic"
@@ -42,19 +41,19 @@ ui       = "User interface"
 git      = "Git operations"
 
 [categories]
-feat     = { emoji = "✨", desc = "Add a new feature" }
-fix      = { emoji = "🐛", desc = "Fix a bug" }
-docs     = { emoji = "📚", desc = "Documentation changes" }
-style    = { emoji = "🎨", desc = "Code style / formatting" }
-refactor = { emoji = "♻️",  desc = "Refactor code" }
-perf     = { emoji = "⚡", desc = "Performance improvement" }
-test     = { emoji = "🧪", desc = "Add or update tests" }
-build    = { emoji = "📦", desc = "Build system changes" }
-ci       = { emoji = "⚙️",  desc = "CI/CD changes" }
-chore    = { emoji = "🧹", desc = "Maintenance / chores" }
-revert   = { emoji = "⏪", desc = "Revert a commit" }
-wip      = { emoji = "🚧", desc = "Work in progress" }
-none     = { emoji = "──",  desc = "No category prefix" }
+feat = "Add a new feature"
+fix = "Fix a bug"
+docs = "Documentation changes"
+style = "Code style / formatting"
+refactor = "Refactor code"
+perf = "Performance improvement"
+test = "Add or update tests"
+build = "Build system changes"
+ci = "CI/CD changes"
+chore = "Maintenance / chores"
+revert = "Revert a commit"
+wip = "Work in progress"
+none = "No category prefix"
 ```
 
 > Note

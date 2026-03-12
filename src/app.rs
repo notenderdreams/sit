@@ -109,7 +109,7 @@ fn interactive_commit(cfg: &Config) -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
 
-    let category = ui::select_category(&cfg.categories, cfg.commit.show_emoji)?;
+    let category = ui::select_category(&cfg.categories, cfg.commit.attach_emoji)?;
 
     let module = if cfg.has_modules() {
         ui::select_module(&cfg.modules)?
@@ -128,16 +128,9 @@ fn interactive_commit(cfg: &Config) -> Result<(), Box<dyn std::error::Error>> {
     let full_message = cfg.format_commit(category, module, &message, &description);
 
     // ── Preview & confirm ────────────────────────────────────────────────────
-    let emoji = cfg
-        .categories
-        .iter()
-        .find(|c| c.name == category)
-        .map(|c| c.emoji.as_str())
-        .unwrap_or("");
-
     let subject = full_message.lines().next().unwrap_or(&full_message);
 
-    if !ui::confirm_commit(subject, emoji, &selected_files)? {
+    if !ui::confirm_commit(subject, "", &selected_files)? {
         print::blank();
         print::hint("Aborted");
         print::blank();
@@ -170,7 +163,7 @@ fn show_categories(cfg: &Config) -> Result<(), Box<dyn std::error::Error>> {
     print::header("Commit Categories:");
     print::blank();
     for cat in &cfg.categories {
-        if cfg.commit.show_emoji {
+        if cfg.commit.attach_emoji {
             println!(
                 "    {}  {}  {}",
                 cat.emoji,

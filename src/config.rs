@@ -15,6 +15,8 @@ struct RawConfig {
     /// [categories]
     /// feat = { emoji = "✨", desc = "Add a new feature" }
     /// fix  = { emoji = "🐛", desc = "Fix a bug" }
+    /// # or shorthand:
+    /// feat = "Add a new feature"
     /// ```
     categories: Option<toml::value::Table>,
     /// Modules as a map:
@@ -40,7 +42,9 @@ struct RawCommit {
     template: Option<String>,
     /// Whether to prompt for a description body
     ask_description: Option<bool>,
-    /// Whether to show emoji in the category picker
+    /// Whether to attach emoji before semantic prefix in the commit subject
+    attach_emoji: Option<bool>,
+    /// Backward compatibility for older config files
     show_emoji: Option<bool>,
     /// Automatically push after every commit without asking
     auto_push: Option<bool>,
@@ -90,8 +94,8 @@ pub struct CommitConfig {
     pub template: String,
     /// Prompt the user for a long description
     pub ask_description: bool,
-    /// Show emoji column in the picker
-    pub show_emoji: bool,
+    /// Attach emoji before semantic prefix in the commit subject
+    pub attach_emoji: bool,
     /// Push automatically after every commit (skip the "Push now?" prompt)
     pub auto_push: bool,
 }
@@ -101,7 +105,7 @@ impl Default for CommitConfig {
         Self {
             template: "$type($mod): $message".into(),
             ask_description: true,
-            show_emoji: true,
+            attach_emoji: false,
             auto_push: false,
         }
     }
@@ -160,8 +164,8 @@ impl Config {
             if let Some(v) = c.ask_description {
                 self.commit.ask_description = v;
             }
-            if let Some(v) = c.show_emoji {
-                self.commit.show_emoji = v;
+            if let Some(v) = c.attach_emoji.or(c.show_emoji) {
+                self.commit.attach_emoji = v;
             }
             if let Some(v) = c.auto_push {
                 self.commit.auto_push = v;
@@ -170,27 +174,44 @@ impl Config {
 
         // Categories – if provided, *replace* the full list
         if let Some(cats) = raw.categories {
+            let mut used_shorthand = false;
             self.categories = cats
                 .into_iter()
                 .filter_map(|(name, value)| {
-                    let rc: RawCategory = match value.try_into() {
-                        Ok(v) => v,
-                        Err(e) => {
-                            crate::print::warn(&format!(
-                                "Invalid category entry for '{}': {}",
-                                name, e
-                            ));
-                            return None;
+                    match value {
+                        toml::Value::String(desc) => {
+                            used_shorthand = true;
+                            Some(Category {
+                                name,
+                                emoji: String::new(),
+                                description: desc,
+                            })
                         }
-                    };
+                        other => {
+                            let rc: RawCategory = match other.try_into() {
+                                Ok(v) => v,
+                                Err(e) => {
+                                    crate::print::warn(&format!(
+                                        "Invalid category entry for '{}': {}",
+                                        name, e
+                                    ));
+                                    return None;
+                                }
+                            };
 
-                    Some(Category {
-                        name,
-                        emoji: rc.emoji.unwrap_or_default(),
-                        description: rc.desc.unwrap_or_default(),
-                    })
+                            Some(Category {
+                                name,
+                                emoji: rc.emoji.unwrap_or_default(),
+                                description: rc.desc.unwrap_or_default(),
+                            })
+                        }
+                    }
                 })
                 .collect();
+
+            if used_shorthand {
+                self.commit.attach_emoji = false;
+            }
         }
 
         // Modules – if provided, *replace* the full list
@@ -261,7 +282,23 @@ impl Config {
             }
         }
 
-        result.trim().to_owned()
+        let subject = result.trim().to_owned();
+        if !self.commit.attach_emoji {
+            return subject;
+        }
+
+        let emoji = self
+            .categories
+            .iter()
+            .find(|c| c.name == category)
+            .map(|c| c.emoji.trim())
+            .unwrap_or("");
+
+        if emoji.is_empty() {
+            subject
+        } else {
+            format!("{}{}", emoji, subject)
+        }
     }
 
     /// Build full commit message (subject + optional description).
@@ -290,30 +327,23 @@ impl Config {
         r#"[commit]
 template        = "$type($mod): $message"
 ask_description = true
-show_emoji      = true
 auto_push       = false
 
-[clone]
-dir = "~/projects"
 
 [categories]
-feat     = { emoji = "✨",  desc = "Add a new feature" }
-fix      = { emoji = "🐛",  desc = "Fix a bug" }
-docs     = { emoji = "📚", desc = "Documentation changes" }
-style    = { emoji = "🎨", desc = "Code style / formatting" }
-refactor = { emoji = "♻️ ", desc = "Refactor code" }
-perf     = { emoji = "⚡", desc = "Performance improvement" }
-test     = { emoji = "🧪", desc = "Add or update tests" }
-build    = { emoji = "📦", desc = "Build system changes" }
-ci       = { emoji = "⚙️ ", desc = "CI/CD changes" }
-chore    = { emoji = "🧹", desc = "Maintenance / chores" }
-revert   = { emoji = "⏪", desc = "Revert a commit" }
-wip      = { emoji = "🚧", desc = "Work in progress" }
-none     = { emoji = "── ", desc = "No category prefix" }
-
-# [modules]
-# core = "Core logic"
-# cli  = "CLI interface"
+feat     = "Add a new feature"
+fix      = "Fix a bug"
+docs     = "Documentation changes"
+style    = "Code style / formatting"
+refactor = "Refactor code"
+perf     = "Performance improvement"
+test     = "Add or update tests"
+build    = "Build system changes"
+ci       = "CI/CD changes"
+chore    = "Maintenance / chores"
+revert   = "Revert a commit"
+wip      = "Work in progress"
+none     = "No category prefix"
 "#
     }
 }
