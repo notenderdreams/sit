@@ -3,7 +3,6 @@ template = "$type($mod): $message"
 ask_description = true
 auto_push = true
 
-
 [modules]
 core     = "Core logic"
 cli      = "CLI interface"

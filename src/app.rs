@@ -47,6 +47,10 @@ enum Commands {
     /// Undo the last commit (soft reset – changes stay staged)
     #[command(alias = "u")]
     Undo,
+
+    /// Category shortcut (e.g. `sit feat`, `sit wip`)
+    #[command(external_subcommand)]
+    CategoryShortcut(Vec<String>),
 }
 
 pub fn run() -> Result<(), Box<dyn std::error::Error>> {
@@ -62,7 +66,98 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
         Some(Commands::Push) => push_branch(),
         Some(Commands::Amend) => amend_commit(&cfg),
         Some(Commands::Undo) => undo_commit(),
+        Some(Commands::CategoryShortcut(args)) => category_shortcut_commit(&cfg, &args),
     }
+}
+
+fn category_shortcut_commit(
+    cfg: &Config,
+    args: &[String],
+) -> Result<(), Box<dyn std::error::Error>> {
+    let Some(category) = args.first().map(|s| s.as_str()) else {
+        return interactive_commit(cfg);
+    };
+
+    if !cfg.categories.iter().any(|c| c.name == category) {
+        return Err(format!("Unknown command or category: {category}").into());
+    }
+
+    let inline_message = if args.len() > 1 {
+        Some(args[1..].join(" "))
+    } else {
+        None
+    };
+
+    commit_with_category(cfg, category, inline_message)
+}
+
+fn commit_with_category(
+    cfg: &Config,
+    category: &str,
+    inline_message: Option<String>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let changes = git::get_status()?;
+
+    if changes.is_empty() {
+        print::blank();
+        print::hint("No changes to commit");
+        print::blank();
+        return Ok(());
+    }
+
+    let selected_files = picker::pick_files(changes)?;
+
+    if selected_files.is_empty() {
+        print::hint("No files selected");
+        print::blank();
+        return Ok(());
+    }
+
+    let module = if cfg.has_modules() {
+        ui::select_module(&cfg.modules)?
+    } else {
+        None
+    };
+
+    let message = match inline_message {
+        Some(m) if !m.trim().is_empty() => m,
+        _ => ui::prompt_message(category)?,
+    };
+
+    let description = if cfg.commit.ask_description {
+        ui::prompt_description()?
+    } else {
+        String::new()
+    };
+
+    let full_message = cfg.format_commit(category, module, &message, &description);
+
+    let subject = full_message.lines().next().unwrap_or(&full_message);
+
+    if !ui::confirm_commit(subject, "", &selected_files)? {
+        print::blank();
+        print::hint("Aborted");
+        print::blank();
+        return Ok(());
+    }
+
+    git::stage_files(&selected_files)?;
+    git::commit(&full_message)?;
+
+    print::blank();
+    print::success_with_details("Committed", &full_message);
+    print::blank();
+
+    if cfg.commit.auto_push {
+        do_push()?;
+    } else if ui::confirm_push()?
+        && let Err(e) = do_push()
+    {
+        print::error(&e.to_string());
+        print::blank();
+    }
+
+    Ok(())
 }
 
 fn switch_branch() -> Result<(), Box<dyn std::error::Error>> {
@@ -111,51 +206,7 @@ fn interactive_commit(cfg: &Config) -> Result<(), Box<dyn std::error::Error>> {
 
     let category = ui::select_category(&cfg.categories, cfg.commit.attach_emoji)?;
 
-    let module = if cfg.has_modules() {
-        ui::select_module(&cfg.modules)?
-    } else {
-        None
-    };
-
-    let message = ui::prompt_message(category)?;
-
-    let description = if cfg.commit.ask_description {
-        ui::prompt_description()?
-    } else {
-        String::new()
-    };
-
-    let full_message = cfg.format_commit(category, module, &message, &description);
-
-    // ── Preview & confirm ────────────────────────────────────────────────────
-    let subject = full_message.lines().next().unwrap_or(&full_message);
-
-    if !ui::confirm_commit(subject, "", &selected_files)? {
-        print::blank();
-        print::hint("Aborted");
-        print::blank();
-        return Ok(());
-    }
-
-    // ── Commit ───────────────────────────────────────────────────────────────
-    git::stage_files(&selected_files)?;
-    git::commit(&full_message)?;
-
-    print::blank();
-    print::success_with_details("Committed", &full_message);
-    print::blank();
-
-    // ── Push ─────────────────────────────────────────────────────────────────
-    if cfg.commit.auto_push {
-        do_push()?;
-    } else if ui::confirm_push()?
-        && let Err(e) = do_push()
-    {
-        print::error(&e.to_string());
-        print::blank();
-    }
-
-    Ok(())
+    commit_with_category(cfg, category, None)
 }
 
 fn show_categories(cfg: &Config) -> Result<(), Box<dyn std::error::Error>> {
