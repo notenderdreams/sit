@@ -1,0 +1,16 @@
+#!/bin/sh
+set -e
+
+echo "Checking formatting..."
+cargo fmt -- --check || {
+    echo "Run 'cargo fmt' to fix formatting."
+    exit 1
+}
+
+echo "Running clippy..."
+cargo clippy -- -D warnings || {
+    echo "Fix clippy warnings before committing."
+    exit 1
+}
+
+echo "All checks passed."

@@ -2,7 +2,7 @@ use clap::{Parser, Subcommand};
 use colored::Colorize;
 
 use crate::config::Config;
-use crate::{clone, git, picker, print, ui};
+use crate::{clone, git, hooks, picker, print, ui};
 
 /// Structured interactive commits
 #[derive(Parser)]
@@ -163,12 +163,28 @@ fn finalize_commit_with_files(
         return Ok(());
     }
 
+    hooks::run_hook(
+        "pre-commit",
+        hooks::HookKind::Pre,
+        &[
+            ("SIT_CATEGORY", category),
+            ("SIT_MESSAGE", &full_message),
+            ("SIT_FILES", &selected_files.join(":")),
+        ],
+    )?;
+
     git::stage_files(&selected_files)?;
     git::commit(&full_message)?;
 
     print::blank();
     print::success_with_details("Committed", &full_message);
     print::blank();
+
+    hooks::run_hook(
+        "post-commit",
+        hooks::HookKind::Post,
+        &[("SIT_CATEGORY", category), ("SIT_MESSAGE", &full_message)],
+    )?;
 
     if cfg.commit.auto_push {
         do_push()?;
@@ -271,6 +287,7 @@ fn push_branch() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 fn do_push() -> Result<(), Box<dyn std::error::Error>> {
+    hooks::run_hook("pre-push", hooks::HookKind::Pre, &[])?;
     let result = git::push()?;
     if result.set_upstream {
         print::success_with_details(
@@ -280,6 +297,14 @@ fn do_push() -> Result<(), Box<dyn std::error::Error>> {
     } else {
         print::success_with_details("Pushed", &format!("→ {}/{}", result.remote, result.branch));
     }
+    hooks::run_hook(
+        "post-push",
+        hooks::HookKind::Post,
+        &[
+            ("SIT_REMOTE", &result.remote),
+            ("SIT_BRANCH", &result.branch),
+        ],
+    )?;
     print::blank();
     Ok(())
 }
@@ -387,6 +412,7 @@ fn undo_commit() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 fn do_push_force() -> Result<(), Box<dyn std::error::Error>> {
+    hooks::run_hook("pre-push", hooks::HookKind::Pre, &[("SIT_FORCE", "1")])?;
     let result = git::push_force()?;
     if result.set_upstream {
         print::success_with_details(
@@ -399,6 +425,15 @@ fn do_push_force() -> Result<(), Box<dyn std::error::Error>> {
             &format!("→ {}/{} (force-with-lease)", result.remote, result.branch),
         );
     }
+    hooks::run_hook(
+        "post-push",
+        hooks::HookKind::Post,
+        &[
+            ("SIT_REMOTE", &result.remote),
+            ("SIT_BRANCH", &result.branch),
+            ("SIT_FORCE", "1"),
+        ],
+    )?;
     print::blank();
     Ok(())
 }
@@ -409,7 +444,10 @@ fn connect_repo(username: &str, repo: &str) -> Result<(), Box<dyn std::error::Er
     print::blank();
 
     git::remote_add_origin(username, repo)?;
-    print::success_with_details("Remote added", &format!("origin → https://github.com/{username}/{repo}.git"));
+    print::success_with_details(
+        "Remote added",
+        &format!("origin → https://github.com/{username}/{repo}.git"),
+    );
 
     git::branch_rename_to_main()?;
     print::success_with_details("Branch", "renamed to main");

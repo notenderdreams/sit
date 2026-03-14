@@ -1,0 +1,4 @@
+#!/bin/sh
+echo "[pre-push] hook fired"
+echo "  Force : ${SIT_FORCE:-0}"
+echo "[pre-push] passed"

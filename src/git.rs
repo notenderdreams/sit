@@ -281,9 +281,7 @@ pub fn switch_branch(name: &str) -> Result<(), Box<dyn std::error::Error>> {
 }
 
 pub fn create_and_switch_branch(name: &str) -> Result<(), Box<dyn std::error::Error>> {
-    let output = Command::new("git")
-        .args(["switch", "-c", name])
-        .output()?;
+    let output = Command::new("git").args(["switch", "-c", name]).output()?;
 
     if output.status.success() {
         Ok(())

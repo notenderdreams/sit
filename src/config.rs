@@ -177,34 +177,32 @@ impl Config {
             let mut used_shorthand = false;
             self.categories = cats
                 .into_iter()
-                .filter_map(|(name, value)| {
-                    match value {
-                        toml::Value::String(desc) => {
-                            used_shorthand = true;
-                            Some(Category {
-                                name,
-                                emoji: String::new(),
-                                description: desc,
-                            })
-                        }
-                        other => {
-                            let rc: RawCategory = match other.try_into() {
-                                Ok(v) => v,
-                                Err(e) => {
-                                    crate::print::warn(&format!(
-                                        "Invalid category entry for '{}': {}",
-                                        name, e
-                                    ));
-                                    return None;
-                                }
-                            };
+                .filter_map(|(name, value)| match value {
+                    toml::Value::String(desc) => {
+                        used_shorthand = true;
+                        Some(Category {
+                            name,
+                            emoji: String::new(),
+                            description: desc,
+                        })
+                    }
+                    other => {
+                        let rc: RawCategory = match other.try_into() {
+                            Ok(v) => v,
+                            Err(e) => {
+                                crate::print::warn(&format!(
+                                    "Invalid category entry for '{}': {}",
+                                    name, e
+                                ));
+                                return None;
+                            }
+                        };
 
-                            Some(Category {
-                                name,
-                                emoji: rc.emoji.unwrap_or_default(),
-                                description: rc.desc.unwrap_or_default(),
-                            })
-                        }
+                        Some(Category {
+                            name,
+                            emoji: rc.emoji.unwrap_or_default(),
+                            description: rc.desc.unwrap_or_default(),
+                        })
                     }
                 })
                 .collect();

@@ -3,6 +3,7 @@ pub mod categories;
 pub mod clone;
 pub mod config;
 pub mod git;
+pub mod hooks;
 pub mod picker;
 pub mod print;
 pub mod ui;

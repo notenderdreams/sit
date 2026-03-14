@@ -1,0 +1,6 @@
+#!/bin/sh
+echo "[post-push] hook fired"
+echo "  Remote : $SIT_REMOTE"
+echo "  Branch : $SIT_BRANCH"
+echo "  Force  : ${SIT_FORCE:-0}"
+echo "[post-push] done"

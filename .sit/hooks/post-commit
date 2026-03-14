@@ -1,0 +1,5 @@
+#!/bin/sh
+echo "[post-commit] hook fired"
+echo "  Category : $SIT_CATEGORY"
+echo "  Message  : $SIT_MESSAGE"
+echo "[post-commit] done"

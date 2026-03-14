@@ -1,7 +1,7 @@
 [commit]
 template = "$type($mod): $message"
 ask_description = true
-auto_push = true
+auto_push = false
 
 [modules]
 core     = "Core logic"

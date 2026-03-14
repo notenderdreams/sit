@@ -329,7 +329,15 @@ fn branch_loop(
     let mut vis = filtered_branch_indices(branches, filter);
     let mut can_create = !filter.trim().is_empty() && !has_exact_branch_match(branches, filter);
 
-    last_height = render_branches(branches, &vis, *cursor_pos, filter, can_create, last_height, stdout)?;
+    last_height = render_branches(
+        branches,
+        &vis,
+        *cursor_pos,
+        filter,
+        can_create,
+        last_height,
+        stdout,
+    )?;
 
     loop {
         if let Event::Key(key) = event::read()? {
@@ -449,7 +457,12 @@ fn render_branches(
         )?;
     }
 
-    let max_name = branches.iter().map(|b| b.name.len()).max().unwrap_or(6).max(6);
+    let max_name = branches
+        .iter()
+        .map(|b| b.name.len())
+        .max()
+        .unwrap_or(6)
+        .max(6);
     let mut item_lines = 0usize;
 
     for (vi, &bi) in visible.iter().enumerate() {
