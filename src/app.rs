@@ -48,6 +48,18 @@ enum Commands {
     #[command(alias = "u")]
     Undo,
 
+    /// Connect the repository to a GitHub remote and push to main
+    #[command(alias = "con")]
+    Connect {
+        /// GitHub username
+        #[arg(value_name = "USERNAME")]
+        username: String,
+
+        /// Repository name (without .git)
+        #[arg(value_name = "REPO")]
+        repo: String,
+    },
+
     /// Category shortcut (e.g. `sit feat`, `sit wip`)
     #[command(external_subcommand)]
     CategoryShortcut(Vec<String>),
@@ -66,6 +78,7 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
         Some(Commands::Push) => push_branch(),
         Some(Commands::Amend) => amend_commit(&cfg),
         Some(Commands::Undo) => undo_commit(),
+        Some(Commands::Connect { username, repo }) => connect_repo(&username, &repo),
         Some(Commands::CategoryShortcut(args)) => category_shortcut_commit(&cfg, &args),
     }
 }
@@ -113,6 +126,15 @@ fn commit_with_category(
         return Ok(());
     }
 
+    finalize_commit_with_files(cfg, category, inline_message, selected_files)
+}
+
+fn finalize_commit_with_files(
+    cfg: &Config,
+    category: &str,
+    inline_message: Option<String>,
+    selected_files: Vec<String>,
+) -> Result<(), Box<dyn std::error::Error>> {
     let module = if cfg.has_modules() {
         ui::select_module(&cfg.modules)?
     } else {
@@ -206,7 +228,7 @@ fn interactive_commit(cfg: &Config) -> Result<(), Box<dyn std::error::Error>> {
 
     let category = ui::select_category(&cfg.categories, cfg.commit.attach_emoji)?;
 
-    commit_with_category(cfg, category, None)
+    finalize_commit_with_files(cfg, category, None, selected_files)
 }
 
 fn show_categories(cfg: &Config) -> Result<(), Box<dyn std::error::Error>> {
@@ -377,6 +399,24 @@ fn do_push_force() -> Result<(), Box<dyn std::error::Error>> {
             &format!("→ {}/{} (force-with-lease)", result.remote, result.branch),
         );
     }
+    print::blank();
+    Ok(())
+}
+
+fn connect_repo(username: &str, repo: &str) -> Result<(), Box<dyn std::error::Error>> {
+    print::blank();
+    print::header(&format!("Connecting to github.com/{username}/{repo}"));
+    print::blank();
+
+    git::remote_add_origin(username, repo)?;
+    print::success_with_details("Remote added", &format!("origin → https://github.com/{username}/{repo}.git"));
+
+    git::branch_rename_to_main()?;
+    print::success_with_details("Branch", "renamed to main");
+
+    git::push_origin_main()?;
+    print::success_with_details("Pushed", "→ origin/main (upstream set)");
+
     print::blank();
     Ok(())
 }

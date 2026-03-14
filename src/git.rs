@@ -369,3 +369,55 @@ pub fn push_force() -> Result<PushResult, Box<dyn std::error::Error>> {
         .into())
     }
 }
+
+/// Add a GitHub remote as `origin`.
+pub fn remote_add_origin(username: &str, repo: &str) -> Result<(), Box<dyn std::error::Error>> {
+    let url = format!("https://github.com/{username}/{repo}.git");
+    let output = Command::new("git")
+        .args(["remote", "add", "origin", &url])
+        .output()?;
+
+    if output.status.success() {
+        Ok(())
+    } else {
+        Err(format!(
+            "Failed to add remote: {}",
+            String::from_utf8_lossy(&output.stderr).trim()
+        )
+        .into())
+    }
+}
+
+/// Rename the current branch to `main`.
+pub fn branch_rename_to_main() -> Result<(), Box<dyn std::error::Error>> {
+    let output = Command::new("git")
+        .args(["branch", "-M", "main"])
+        .output()?;
+
+    if output.status.success() {
+        Ok(())
+    } else {
+        Err(format!(
+            "Failed to rename branch: {}",
+            String::from_utf8_lossy(&output.stderr).trim()
+        )
+        .into())
+    }
+}
+
+/// Push to `origin main` and set it as the upstream.
+pub fn push_origin_main() -> Result<(), Box<dyn std::error::Error>> {
+    let output = Command::new("git")
+        .args(["push", "-u", "origin", "main"])
+        .output()?;
+
+    if output.status.success() {
+        Ok(())
+    } else {
+        Err(format!(
+            "Push failed: {}",
+            String::from_utf8_lossy(&output.stderr).trim()
+        )
+        .into())
+    }
+}
