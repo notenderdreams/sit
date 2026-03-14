@@ -28,6 +28,12 @@ Then run:
 sit --help
 ```
 
+## Config
+
+- Global config: `~/sit.toml`
+- Project config: `.sit/config.toml` (searched from current directory upward)
+- Run `sit init` to scaffold `.sit/config.toml` and `.sit/hooks/*` template files with commented examples.
+
 ```rs
 [commit]
 template = "$type($mod): $message"

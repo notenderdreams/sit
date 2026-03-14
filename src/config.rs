@@ -132,7 +132,8 @@ impl Default for Config {
 // ── Loading ──────────────────────────────────────────────
 
 impl Config {
-    /// Load config: global `~/.sitrc` merged with local `.sitrc`.
+    /// Load config: global `~/sit.toml` merged with local `.sit/config.toml`.
+    /// Backward-compatible fallbacks are `~/.sitrc` and local `.sitrc`.
     /// Local values override global; missing fields keep defaults.
     pub fn load() -> Self {
         let mut cfg = Config::default();
@@ -144,7 +145,7 @@ impl Config {
             cfg.apply(raw);
         }
 
-        // 2. Local (walk up from cwd to find .sitrc)
+        // 2. Local (walk up from cwd to find .sit/config.toml)
         if let Some(local_path) = local_config_path()
             && let Some(raw) = read_raw(&local_path)
         {
@@ -320,7 +321,7 @@ impl Config {
         !self.modules.is_empty()
     }
 
-    /// Returns the default `.sitrc` TOML content written by `sit init`.
+    /// Returns the default TOML content written by `sit init`.
     pub fn default_toml() -> &'static str {
         r#"[commit]
 template        = "$type($mod): $message"
@@ -349,15 +350,31 @@ none     = "No category prefix"
 // ── Helpers ──────────────────────────────────────────────
 
 fn global_config_path() -> Option<PathBuf> {
-    dirs::home_dir().map(|h| h.join(".sitrc"))
+    let home = dirs::home_dir()?;
+    let primary = home.join("sit.toml");
+    if primary.is_file() {
+        return Some(primary);
+    }
+
+    let legacy = home.join(".sitrc");
+    if legacy.is_file() {
+        return Some(legacy);
+    }
+
+    None
 }
 
 fn local_config_path() -> Option<PathBuf> {
     let mut dir = env::current_dir().ok()?;
     loop {
-        let candidate = dir.join(".sitrc");
-        if candidate.is_file() {
-            return Some(candidate);
+        let primary = dir.join(".sit").join("config.toml");
+        if primary.is_file() {
+            return Some(primary);
+        }
+
+        let legacy = dir.join(".sitrc");
+        if legacy.is_file() {
+            return Some(legacy);
         }
         if !dir.pop() {
             break;
