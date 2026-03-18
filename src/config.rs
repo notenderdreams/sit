@@ -26,14 +26,6 @@ struct RawConfig {
     /// cli  = "CLI interface"
     /// ```
     modules: Option<toml::value::Table>,
-    /// Clone settings
-    clone: Option<RawClone>,
-}
-
-#[derive(Debug, Default, Deserialize)]
-struct RawClone {
-    /// Default directory for cloned repositories
-    dir: Option<String>,
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -63,23 +55,6 @@ pub struct Config {
     pub commit: CommitConfig,
     pub categories: Vec<Category>,
     pub modules: Vec<Module>,
-    pub clone: CloneConfig,
-}
-
-#[derive(Debug, Clone)]
-pub struct CloneConfig {
-    /// Default directory for clones (expandable: ~/projects, $HOME, etc.)
-    pub dir: PathBuf,
-}
-
-impl Default for CloneConfig {
-    fn default() -> Self {
-        // Default: ~/projects
-        let dir = dirs::home_dir()
-            .map(|h| h.join("projects"))
-            .unwrap_or_else(|| PathBuf::from("./projects"));
-        Self { dir }
-    }
 }
 
 #[derive(Debug, Clone)]
@@ -124,7 +99,6 @@ impl Default for Config {
                 })
                 .collect(),
             modules: vec![],
-            clone: CloneConfig::default(),
         }
     }
 }
@@ -232,23 +206,6 @@ impl Config {
                     Some(Module { name, description })
                 })
                 .collect();
-        }
-
-        // Clone settings
-        if let Some(c) = raw.clone
-            && let Some(dir_str) = c.dir
-        {
-            // Expand ~ to home directory
-            let expanded = if dir_str.starts_with('~') {
-                if let Some(home) = dirs::home_dir() {
-                    home.join(&dir_str[2..]) // skip ~/ or ~
-                } else {
-                    PathBuf::from(dir_str)
-                }
-            } else {
-                PathBuf::from(dir_str)
-            };
-            self.clone.dir = expanded;
         }
     }
 
