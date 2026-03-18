@@ -1,4 +1,4 @@
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::process::Command;
 
 /// Whether a hook failure should abort the current operation.
@@ -61,12 +61,12 @@ pub fn run_hook(
 }
 
 fn find_hook(name: &str) -> Option<PathBuf> {
+    let root = crate::git::get_repo_root()?;
     let candidates = [
-        format!(".sit/hooks/{name}"),
-        format!(".sit/hooks/{name}.sh"),
+        root.join(".sit/hooks").join(name),
+        root.join(".sit/hooks").join(format!("{name}.sh")),
     ];
-    for candidate in &candidates {
-        let path = Path::new(candidate);
+    for path in &candidates {
         if path.is_file() {
             return Some(path.to_path_buf());
         }

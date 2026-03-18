@@ -344,10 +344,7 @@ fn amend_commit(cfg: &Config) -> Result<(), Box<dyn std::error::Error>> {
 
     if !ui::confirm_commit(subject, "", &preview_files)? {
         if !staged_files.is_empty() {
-            let _ = std::process::Command::new("git")
-                .args(["restore", "--staged", "--"])
-                .args(&staged_files)
-                .output();
+            let _ = git::unstage_files(&staged_files);
         }
         print::blank();
         print::hint("Aborted");

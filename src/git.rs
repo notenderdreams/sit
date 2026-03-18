@@ -1,7 +1,5 @@
 use std::process::Command;
 
-use colored::{ColoredString, Colorize};
-
 #[derive(Debug, Clone)]
 pub struct FileChange {
     pub path: String,
@@ -47,22 +45,31 @@ impl FileStatus {
             Self::Untracked => 4,
         }
     }
+}
 
-    pub fn colorize(&self, text: &str) -> ColoredString {
-        match self {
-            Self::Added => text.green(),
-            Self::Modified => text.yellow(),
-            Self::Deleted => text.red(),
-            Self::Renamed => text.cyan(),
-            Self::Untracked => text.bright_black(),
-        }
+pub fn get_repo_root() -> Option<std::path::PathBuf> {
+    let output = Command::new("git")
+        .args(["rev-parse", "--show-toplevel"])
+        .output()
+        .ok()?;
+    if output.status.success() {
+        let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        Some(std::path::PathBuf::from(path))
+    } else {
+        None
     }
 }
 
+fn git_command() -> Command {
+    let mut cmd = Command::new("git");
+    if let Some(root) = get_repo_root() {
+        cmd.current_dir(root);
+    }
+    cmd
+}
+
 pub fn get_status() -> Result<Vec<FileChange>, Box<dyn std::error::Error>> {
-    let output = Command::new("git")
-        .args(["status", "--porcelain"])
-        .output()?;
+    let output = git_command().args(["status", "--porcelain"]).output()?;
 
     if !output.status.success() {
         return Err("Not a git repository".into());
@@ -100,13 +107,13 @@ pub fn stage_files(paths: &[String]) -> Result<(), Box<dyn std::error::Error>> {
     }
 
     // Reset index first so only selected files are staged
-    let _ = Command::new("git").args(["reset", "HEAD"]).output();
+    let _ = git_command().args(["reset", "HEAD"]).output();
 
     let mut args = vec!["add", "--"];
     let refs: Vec<&str> = paths.iter().map(|s| s.as_str()).collect();
     args.extend(refs);
 
-    let output = Command::new("git").args(&args).output()?;
+    let output = git_command().args(&args).output()?;
 
     if !output.status.success() {
         return Err(format!(
@@ -119,10 +126,30 @@ pub fn stage_files(paths: &[String]) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
+pub fn unstage_files(paths: &[String]) -> Result<(), Box<dyn std::error::Error>> {
+    if paths.is_empty() {
+        return Ok(());
+    }
+
+    let mut args = vec!["restore", "--staged", "--"];
+    let refs: Vec<&str> = paths.iter().map(|s| s.as_str()).collect();
+    args.extend(refs);
+
+    let output = git_command().args(&args).output()?;
+
+    if !output.status.success() {
+        return Err(format!(
+            "Failed to unstage: {}",
+            String::from_utf8_lossy(&output.stderr)
+        )
+        .into());
+    }
+
+    Ok(())
+}
+
 pub fn commit(message: &str) -> Result<(), Box<dyn std::error::Error>> {
-    let output = Command::new("git")
-        .args(["commit", "-m", message])
-        .output()?;
+    let output = git_command().args(["commit", "-m", message]).output()?;
 
     if output.status.success() {
         Ok(())
@@ -133,7 +160,7 @@ pub fn commit(message: &str) -> Result<(), Box<dyn std::error::Error>> {
 
 /// Amend the last commit, optionally changing the message.
 pub fn commit_amend(message: &str) -> Result<(), Box<dyn std::error::Error>> {
-    let output = Command::new("git")
+    let output = git_command()
         .args(["commit", "--amend", "-m", message])
         .output()?;
 
@@ -146,9 +173,7 @@ pub fn commit_amend(message: &str) -> Result<(), Box<dyn std::error::Error>> {
 
 /// Return the subject line (first line) of the last commit message.
 pub fn last_commit_message() -> Result<String, Box<dyn std::error::Error>> {
-    let output = Command::new("git")
-        .args(["log", "-1", "--format=%B"])
-        .output()?;
+    let output = git_command().args(["log", "-1", "--format=%B"]).output()?;
 
     if !output.status.success() {
         return Err("No commits found".into());
@@ -159,7 +184,7 @@ pub fn last_commit_message() -> Result<String, Box<dyn std::error::Error>> {
 
 /// Return the list of files changed in HEAD.
 pub fn last_commit_files() -> Result<Vec<String>, Box<dyn std::error::Error>> {
-    let output = Command::new("git")
+    let output = git_command()
         .args(["diff-tree", "--no-commit-id", "-r", "--name-only", "HEAD"])
         .output()?;
 
@@ -175,9 +200,7 @@ pub fn last_commit_files() -> Result<Vec<String>, Box<dyn std::error::Error>> {
 
 /// Undo the last commit with a soft reset (changes stay staged).
 pub fn soft_reset() -> Result<(), Box<dyn std::error::Error>> {
-    let output = Command::new("git")
-        .args(["reset", "--soft", "HEAD~1"])
-        .output()?;
+    let output = git_command().args(["reset", "--soft", "HEAD~1"]).output()?;
 
     if output.status.success() {
         Ok(())
@@ -192,7 +215,7 @@ pub fn soft_reset() -> Result<(), Box<dyn std::error::Error>> {
 
 /// Returns the name of the currently checked-out branch.
 pub fn current_branch() -> Result<String, Box<dyn std::error::Error>> {
-    let output = Command::new("git")
+    let output = git_command()
         .args(["rev-parse", "--abbrev-ref", "HEAD"])
         .output()?;
 
@@ -211,7 +234,7 @@ pub fn current_branch() -> Result<String, Box<dyn std::error::Error>> {
 /// or `None` when no upstream is set.
 pub fn upstream() -> Option<(String, String)> {
     // "origin/main" form
-    let out = Command::new("git")
+    let out = git_command()
         .args(["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"])
         .output()
         .ok()?;
@@ -239,7 +262,7 @@ pub struct Branch {
 }
 
 pub fn list_local_branches() -> Result<Vec<Branch>, Box<dyn std::error::Error>> {
-    let output = Command::new("git")
+    let output = git_command()
         .args(["branch", "--format=%(refname:short)"])
         .output()?;
 
@@ -267,7 +290,7 @@ pub fn list_local_branches() -> Result<Vec<Branch>, Box<dyn std::error::Error>> 
 }
 
 pub fn switch_branch(name: &str) -> Result<(), Box<dyn std::error::Error>> {
-    let output = Command::new("git").args(["switch", name]).output()?;
+    let output = git_command().args(["switch", name]).output()?;
 
     if output.status.success() {
         Ok(())
@@ -281,7 +304,7 @@ pub fn switch_branch(name: &str) -> Result<(), Box<dyn std::error::Error>> {
 }
 
 pub fn create_and_switch_branch(name: &str) -> Result<(), Box<dyn std::error::Error>> {
-    let output = Command::new("git").args(["switch", "-c", name]).output()?;
+    let output = git_command().args(["switch", "-c", name]).output()?;
 
     if output.status.success() {
         Ok(())
@@ -314,7 +337,7 @@ pub fn push() -> Result<PushResult, Box<dyn std::error::Error>> {
         args.push(&set_upstream_flag);
     }
 
-    let output = Command::new("git").args(&args).output()?;
+    let output = git_command().args(&args).output()?;
 
     if output.status.success() {
         Ok(PushResult {
@@ -351,7 +374,7 @@ pub fn push_force() -> Result<PushResult, Box<dyn std::error::Error>> {
         args.push(&set_upstream_flag);
     }
 
-    let output = Command::new("git").args(&args).output()?;
+    let output = git_command().args(&args).output()?;
 
     if output.status.success() {
         Ok(PushResult {
@@ -371,7 +394,7 @@ pub fn push_force() -> Result<PushResult, Box<dyn std::error::Error>> {
 /// Add a GitHub remote as `origin`.
 pub fn remote_add_origin(username: &str, repo: &str) -> Result<(), Box<dyn std::error::Error>> {
     let url = format!("https://github.com/{username}/{repo}.git");
-    let output = Command::new("git")
+    let output = git_command()
         .args(["remote", "add", "origin", &url])
         .output()?;
 
@@ -388,9 +411,7 @@ pub fn remote_add_origin(username: &str, repo: &str) -> Result<(), Box<dyn std::
 
 /// Rename the current branch to `main`.
 pub fn branch_rename_to_main() -> Result<(), Box<dyn std::error::Error>> {
-    let output = Command::new("git")
-        .args(["branch", "-M", "main"])
-        .output()?;
+    let output = git_command().args(["branch", "-M", "main"]).output()?;
 
     if output.status.success() {
         Ok(())
@@ -405,7 +426,7 @@ pub fn branch_rename_to_main() -> Result<(), Box<dyn std::error::Error>> {
 
 /// Push to `origin main` and set it as the upstream.
 pub fn push_origin_main() -> Result<(), Box<dyn std::error::Error>> {
-    let output = Command::new("git")
+    let output = git_command()
         .args(["push", "-u", "origin", "main"])
         .output()?;
 
