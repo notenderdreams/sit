@@ -33,6 +33,10 @@ enum Commands {
     #[command(alias = "p")]
     Push,
 
+    /// Create and push a release tag (e.g. v0.2.1)
+    #[command(alias = "rel")]
+    Release,
+
     /// Amend the last commit (message and/or staged changes)
     #[command(alias = "a")]
     Amend,
@@ -68,6 +72,7 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
         Some(Commands::Branch) => switch_branch(),
         Some(Commands::Init) => init_config(),
         Some(Commands::Push) => push_branch(),
+        Some(Commands::Release) => release_tag(),
         Some(Commands::Amend) => amend_commit(&cfg),
         Some(Commands::Undo) => undo_commit(),
         Some(Commands::Connect { username, repo }) => connect_repo(&username, &repo),
@@ -266,6 +271,29 @@ fn show_categories(cfg: &Config) -> Result<(), Box<dyn std::error::Error>> {
 fn push_branch() -> Result<(), Box<dyn std::error::Error>> {
     print::blank();
     do_push()
+}
+
+fn release_tag() -> Result<(), Box<dyn std::error::Error>> {
+    let previous = git::latest_release_tag()?;
+
+    print::blank();
+    print::header("Create release tag");
+    if let Some(ref tag) = previous {
+        print::hint(&format!("Previous release tag: {tag}"));
+    } else {
+        print::hint("Previous release tag: none");
+    }
+    print::blank();
+
+    let tag = ui::prompt_release_tag(previous.as_deref())?;
+
+    git::create_tag(&tag)?;
+    git::push_tag(&tag)?;
+
+    print::blank();
+    print::success_with_details("Released", &format!("tag {tag} pushed"));
+    print::blank();
+    Ok(())
 }
 
 fn do_push() -> Result<(), Box<dyn std::error::Error>> {

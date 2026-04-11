@@ -28,6 +28,16 @@ Then run:
 sit --help
 ```
 
+## Commands
+
+- `sit commit` / `sit c`: interactive commit flow
+- `sit branch` / `sit b`: switch or create branches with picker
+- `sit push` / `sit p`: push current branch to upstream
+- `sit release` / `sit rel`: show previous release tag, prompt next version, create and push new tag
+- `sit amend` / `sit a`: amend last commit
+- `sit undo` / `sit u`: soft-reset last commit
+- `sit init`: scaffold `.sit/config.toml` and hook templates
+
 ## Config
 
 - Global config: `~/sit.toml`

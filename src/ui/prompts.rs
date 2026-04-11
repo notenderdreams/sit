@@ -56,6 +56,36 @@ pub fn prompt_amend_message(current: &str) -> Result<String, Box<dyn std::error:
     Ok(message)
 }
 
+pub fn prompt_release_tag(
+    previous_tag: Option<&str>,
+) -> Result<String, Box<dyn std::error::Error>> {
+    let mut text = Text::new("Release version:");
+
+    let previous_clean =
+        previous_tag.map(|previous| previous.trim().trim_start_matches('v').to_string());
+    if let Some(previous) = previous_clean.as_deref()
+        && !previous.is_empty()
+    {
+        text = text.with_placeholder(previous);
+        // text = text.with_help_message("Use semantic version format: 1.2.3");
+    }
+
+    let value = text.prompt()?;
+    let value = value.trim();
+
+    if value.is_empty() {
+        return Err("Release version cannot be empty".into());
+    }
+
+    let normalized = if value.starts_with('v') {
+        value.to_string()
+    } else {
+        format!("v{value}")
+    };
+
+    Ok(normalized)
+}
+
 pub fn print_success(commit_msg: &str) {
     crate::print::blank();
     crate::print::success_with_details("Committed", commit_msg);
