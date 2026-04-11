@@ -5,7 +5,7 @@ use crossterm::{
     event::{self, Event, KeyCode, KeyEventKind},
     execute, queue,
     style::Print,
-    terminal::{self, ClearType},
+    terminal::{self, ClearType, EnterAlternateScreen, LeaveAlternateScreen},
 };
 
 use super::common::git_command;
@@ -44,34 +44,66 @@ fn page_log(output: &str) -> Result<()> {
     let _guard = TerminalGuard::enter(&mut stdout)?;
 
     let mut offset = 0usize;
+    let mut last_rendered_offset = usize::MAX;
+    let mut last_size = terminal::size()?;
+    let mut show_end_notice = false;
+    let mut last_show_end_notice = false;
 
     loop {
-        render_page(&lines, offset, &mut stdout)?;
+        let size = terminal::size()?;
+        let visible_lines = size.1.saturating_sub(1).max(1) as usize;
+        let max_offset = lines.len().saturating_sub(visible_lines);
+        if offset > max_offset {
+            offset = max_offset;
+        }
 
-        if let Event::Key(key) = event::read()? {
-            if key.kind != KeyEventKind::Press {
-                continue;
-            }
+        if offset != last_rendered_offset
+            || size != last_size
+            || show_end_notice != last_show_end_notice
+        {
+            render_page(&lines, offset, show_end_notice, &mut stdout)?;
+            last_rendered_offset = offset;
+            last_size = size;
+            last_show_end_notice = show_end_notice;
+        }
 
-            match key.code {
-                KeyCode::Char('q') | KeyCode::Esc => break,
-                KeyCode::Enter | KeyCode::Down | KeyCode::Char('j') => {
-                    if offset + 1 < lines.len() {
-                        offset += 1;
+        match event::read()? {
+            Event::Key(key) => {
+                if key.kind != KeyEventKind::Press {
+                    continue;
+                }
+
+                match key.code {
+                    KeyCode::Char('q') | KeyCode::Esc => break,
+                    KeyCode::Enter | KeyCode::Down | KeyCode::Char('j') => {
+                        if offset < max_offset {
+                            offset += 1;
+                            show_end_notice = false;
+                        } else {
+                            show_end_notice = true;
+                        }
                     }
+                    KeyCode::Up | KeyCode::Char('k') => {
+                        offset = offset.saturating_sub(1);
+                        show_end_notice = false;
+                    }
+                    _ => {}
                 }
-                KeyCode::Up | KeyCode::Char('k') => {
-                    offset = offset.saturating_sub(1);
-                }
-                _ => {}
             }
+            Event::Resize(_, _) => {}
+            _ => {}
         }
     }
 
     Ok(())
 }
 
-fn render_page(lines: &[&str], offset: usize, stdout: &mut io::Stdout) -> Result<usize> {
+fn render_page(
+    lines: &[&str],
+    offset: usize,
+    show_end_notice: bool,
+    stdout: &mut io::Stdout,
+) -> Result<usize> {
     let (_, rows) = terminal::size()?;
     let visible_lines = rows.saturating_sub(1).max(1) as usize;
     let end = (offset + visible_lines).min(lines.len());
@@ -79,14 +111,16 @@ fn render_page(lines: &[&str], offset: usize, stdout: &mut io::Stdout) -> Result
     execute!(
         stdout,
         cursor::MoveTo(0, 0),
-        terminal::Clear(ClearType::All)
+        terminal::Clear(ClearType::FromCursorDown)
     )?;
 
     for line in &lines[offset..end] {
         queue!(stdout, Print(*line), Print("\r\n"))?;
     }
 
-    let footer = if end >= lines.len() {
+    let footer = if show_end_notice {
+        format!("  {DIM}END{RESET}")
+    } else if end >= lines.len() {
         format!("  {DIM}End of log · ↑/↓ move · q quit{RESET}")
     } else {
         format!("  {DIM}{NAV_ARROWS} move one commit · q quit{RESET}")
@@ -102,7 +136,7 @@ struct TerminalGuard;
 impl TerminalGuard {
     fn enter(stdout: &mut io::Stdout) -> io::Result<Self> {
         terminal::enable_raw_mode()?;
-        if let Err(err) = execute!(stdout, cursor::Hide) {
+        if let Err(err) = execute!(stdout, EnterAlternateScreen, cursor::Hide) {
             let _ = terminal::disable_raw_mode();
             return Err(err);
         }
@@ -114,7 +148,7 @@ impl TerminalGuard {
 impl Drop for TerminalGuard {
     fn drop(&mut self) {
         let mut stdout = io::stdout();
-        let _ = execute!(stdout, cursor::Show);
+        let _ = execute!(stdout, cursor::Show, LeaveAlternateScreen);
         let _ = terminal::disable_raw_mode();
     }
 }
