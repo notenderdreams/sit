@@ -1,6 +1,7 @@
 pub mod app;
 pub mod categories;
 pub mod config;
+pub mod error;
 pub mod git;
 pub mod hooks;
 pub mod picker;

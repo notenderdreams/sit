@@ -1,7 +1,9 @@
 use inquire::Text;
 use inquire::ui::{Color, RenderConfig, Styled};
 
-pub fn prompt_message(category: &str) -> Result<String, Box<dyn std::error::Error>> {
+use crate::error::Result;
+
+pub fn prompt_message(category: &str) -> Result<String> {
     let prefix = format!(" {} ", category);
     let render_config = RenderConfig::default().with_prompt_prefix(
         Styled::new(prefix.as_str())
@@ -22,7 +24,7 @@ pub fn prompt_message(category: &str) -> Result<String, Box<dyn std::error::Erro
     Ok(message)
 }
 
-pub fn prompt_description() -> Result<String, Box<dyn std::error::Error>> {
+pub fn prompt_description() -> Result<String> {
     let render_config =
         RenderConfig::default().with_prompt_prefix(Styled::new("    ").with_fg(Color::DarkGrey));
 
@@ -36,7 +38,7 @@ pub fn prompt_description() -> Result<String, Box<dyn std::error::Error>> {
 
 /// Prompt for a commit message pre-filled with the last commit's message.
 /// The user can edit it or press Enter to keep it unchanged.
-pub fn prompt_amend_message(current: &str) -> Result<String, Box<dyn std::error::Error>> {
+pub fn prompt_amend_message(current: &str) -> Result<String> {
     let render_config = RenderConfig::default().with_prompt_prefix(
         Styled::new(" amend ")
             .with_fg(Color::White)
@@ -56,9 +58,7 @@ pub fn prompt_amend_message(current: &str) -> Result<String, Box<dyn std::error:
     Ok(message)
 }
 
-pub fn prompt_release_tag(
-    previous_tag: Option<&str>,
-) -> Result<String, Box<dyn std::error::Error>> {
+pub fn prompt_release_tag(previous_tag: Option<&str>) -> Result<String> {
     let mut text = Text::new("Release version:");
 
     let previous_clean =

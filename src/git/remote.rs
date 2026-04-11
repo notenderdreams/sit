@@ -1,7 +1,8 @@
 use super::common::git_command;
+use crate::error::Result;
 
 /// Add a GitHub remote as `origin`.
-pub fn remote_add_origin(username: &str, repo: &str) -> Result<(), Box<dyn std::error::Error>> {
+pub fn remote_add_origin(username: &str, repo: &str) -> Result<()> {
     let url = format!("https://github.com/{username}/{repo}.git");
     let output = git_command()
         .args(["remote", "add", "origin", &url])
@@ -19,7 +20,7 @@ pub fn remote_add_origin(username: &str, repo: &str) -> Result<(), Box<dyn std::
 }
 
 /// Rename the current branch to `main`.
-pub fn branch_rename_to_main() -> Result<(), Box<dyn std::error::Error>> {
+pub fn branch_rename_to_main() -> Result<()> {
     let output = git_command().args(["branch", "-M", "main"]).output()?;
 
     if output.status.success() {
@@ -34,7 +35,7 @@ pub fn branch_rename_to_main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 /// Push to `origin main` and set it as the upstream.
-pub fn push_origin_main() -> Result<(), Box<dyn std::error::Error>> {
+pub fn push_origin_main() -> Result<()> {
     let output = git_command()
         .args(["push", "-u", "origin", "main"])
         .output()?;

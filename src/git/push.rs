@@ -1,9 +1,10 @@
 use super::branches::{current_branch, upstream};
 use super::common::git_command;
 use super::types::PushResult;
+use crate::error::Result;
 
 /// Push the current branch. If no upstream is configured, sets it to `origin/<branch>`.
-pub fn push() -> Result<PushResult, Box<dyn std::error::Error>> {
+pub fn push() -> Result<PushResult> {
     let branch = current_branch()?;
 
     let (remote, set_upstream) = if let Some((remote_name, _)) = upstream() {
@@ -40,7 +41,7 @@ pub fn push() -> Result<PushResult, Box<dyn std::error::Error>> {
 
 /// Push the current branch with `--force-with-lease`.
 /// If no upstream is configured, sets it to `origin/<branch>`.
-pub fn push_force() -> Result<PushResult, Box<dyn std::error::Error>> {
+pub fn push_force() -> Result<PushResult> {
     let branch = current_branch()?;
 
     let (remote, set_upstream) = if let Some((remote_name, _)) = upstream() {

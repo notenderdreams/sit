@@ -2,6 +2,7 @@ use clap::{Parser, Subcommand};
 use colored::Colorize;
 
 use crate::config::Config;
+use crate::error::Result;
 use crate::style::{DIM, ICON_RENAMED, RESET, TREE_LAST, TREE_MID};
 use crate::{git, hooks, picker, print, ui};
 
@@ -63,7 +64,7 @@ enum Commands {
     CategoryShortcut(Vec<String>),
 }
 
-pub fn run() -> Result<(), Box<dyn std::error::Error>> {
+pub fn run() -> Result<()> {
     let cli = Cli::parse();
     let cfg = Config::load();
 
@@ -81,10 +82,7 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
     }
 }
 
-fn category_shortcut_commit(
-    cfg: &Config,
-    args: &[String],
-) -> Result<(), Box<dyn std::error::Error>> {
+fn category_shortcut_commit(cfg: &Config, args: &[String]) -> Result<()> {
     let Some(category) = args.first().map(|s| s.as_str()) else {
         return interactive_commit(cfg);
     };
@@ -106,7 +104,7 @@ fn commit_with_category(
     cfg: &Config,
     category: &str,
     inline_message: Option<String>,
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> Result<()> {
     let changes = git::get_status()?;
 
     if changes.is_empty() {
@@ -132,7 +130,7 @@ fn finalize_commit_with_files(
     category: &str,
     inline_message: Option<String>,
     selected_files: Vec<String>,
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> Result<()> {
     let module = if cfg.has_modules() {
         ui::select_module(&cfg.modules)?
     } else {
@@ -196,7 +194,7 @@ fn finalize_commit_with_files(
     Ok(())
 }
 
-fn switch_branch() -> Result<(), Box<dyn std::error::Error>> {
+fn switch_branch() -> Result<()> {
     let branches = git::list_local_branches()?;
     let selected = ui::select_branch(&branches)?;
 
@@ -225,7 +223,7 @@ fn switch_branch() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn interactive_commit(cfg: &Config) -> Result<(), Box<dyn std::error::Error>> {
+fn interactive_commit(cfg: &Config) -> Result<()> {
     let changes = git::get_status()?;
 
     if changes.is_empty() {
@@ -248,7 +246,7 @@ fn interactive_commit(cfg: &Config) -> Result<(), Box<dyn std::error::Error>> {
     finalize_commit_with_files(cfg, category, None, selected_files)
 }
 
-fn show_categories(cfg: &Config) -> Result<(), Box<dyn std::error::Error>> {
+fn show_categories(cfg: &Config) -> Result<()> {
     print::blank();
     print::header("Commit Categories:");
     print::blank();
@@ -272,12 +270,12 @@ fn show_categories(cfg: &Config) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn push_branch() -> Result<(), Box<dyn std::error::Error>> {
+fn push_branch() -> Result<()> {
     print::blank();
     do_push()
 }
 
-fn release_tag() -> Result<(), Box<dyn std::error::Error>> {
+fn release_tag() -> Result<()> {
     let previous = git::latest_release_tag()?;
 
     print::blank();
@@ -300,7 +298,7 @@ fn release_tag() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn do_push() -> Result<(), Box<dyn std::error::Error>> {
+fn do_push() -> Result<()> {
     hooks::run_hook("pre-push", hooks::HookKind::Pre, &[])?;
     let result = git::push()?;
     if result.set_upstream {
@@ -329,7 +327,7 @@ fn do_push() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn amend_commit(cfg: &Config) -> Result<(), Box<dyn std::error::Error>> {
+fn amend_commit(cfg: &Config) -> Result<()> {
     // ── Fetch the last commit's message and file list ────────────────────────
     let last_message = git::last_commit_message()?;
     let last_files = git::last_commit_files()?;
@@ -392,7 +390,7 @@ fn amend_commit(cfg: &Config) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn undo_commit() -> Result<(), Box<dyn std::error::Error>> {
+fn undo_commit() -> Result<()> {
     let last_message = git::last_commit_message()?;
     let last_files = git::last_commit_files()?;
 
@@ -428,7 +426,7 @@ fn undo_commit() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn do_push_force() -> Result<(), Box<dyn std::error::Error>> {
+fn do_push_force() -> Result<()> {
     hooks::run_hook("pre-push", hooks::HookKind::Pre, &[("SIT_FORCE", "1")])?;
     let result = git::push_force()?;
     if result.set_upstream {
@@ -461,7 +459,7 @@ fn do_push_force() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn connect_repo(username: &str, repo: &str) -> Result<(), Box<dyn std::error::Error>> {
+fn connect_repo(username: &str, repo: &str) -> Result<()> {
     print::blank();
     print::header(&format!("Connecting to github.com/{username}/{repo}"));
     print::blank();
@@ -485,7 +483,7 @@ fn connect_repo(username: &str, repo: &str) -> Result<(), Box<dyn std::error::Er
     Ok(())
 }
 
-fn init_config() -> Result<(), Box<dyn std::error::Error>> {
+fn init_config() -> Result<()> {
     use std::path::Path;
 
     let sit_dir = Path::new(".sit");
@@ -531,10 +529,7 @@ fn init_config() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn write_hook_template(
-    path: &std::path::Path,
-    template: &str,
-) -> Result<(), Box<dyn std::error::Error>> {
+fn write_hook_template(path: &std::path::Path, template: &str) -> Result<()> {
     if !path.exists() {
         std::fs::write(path, template)?;
     }

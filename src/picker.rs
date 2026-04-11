@@ -8,6 +8,7 @@ use crossterm::{
     terminal::{self, ClearType},
 };
 
+use crate::error::Result;
 use crate::git::{FileChange, FileStatus};
 use crate::style::{
     BG_SELECT, BOLD, CHECK_SELECTED, CHECK_UNSELECTED, DIM, NAV_ARROWS, POINTER, RESET, TREE_LAST,
@@ -19,7 +20,7 @@ struct Item {
     selected: bool,
 }
 
-pub fn pick_files(changes: Vec<FileChange>) -> Result<Vec<String>, Box<dyn std::error::Error>> {
+pub fn pick_files(changes: Vec<FileChange>) -> Result<Vec<String>> {
     if changes.is_empty() {
         return Ok(vec![]);
     }

@@ -8,14 +8,11 @@ use crossterm::{
 };
 
 use super::terminal::{clear_lines, run_with_terminal};
+use crate::error::Result;
 
 /// Show a commit preview and ask the user to confirm with y/N.
 /// Returns `true` if the user pressed y/Y, `false` on n/N/Esc/any other key.
-pub fn confirm_commit(
-    subject: &str,
-    emoji: &str,
-    files: &[String],
-) -> Result<bool, Box<dyn std::error::Error>> {
+pub fn confirm_commit(subject: &str, emoji: &str, files: &[String]) -> Result<bool> {
     run_with_terminal(|stdout| confirm_commit_loop(subject, emoji, files, stdout))
 }
 
@@ -24,7 +21,7 @@ fn confirm_commit_loop(
     emoji: &str,
     files: &[String],
     stdout: &mut io::Stdout,
-) -> Result<bool, Box<dyn std::error::Error>> {
+) -> Result<bool> {
     let line_count = render_commit_preview(subject, emoji, files, stdout)?;
 
     loop {
@@ -90,21 +87,21 @@ fn render_commit_preview(
 
 /// Ask "Push now? [y/N]" with a single keypress.
 /// Returns `true` if the user pressed y/Y.
-pub fn confirm_push() -> Result<bool, Box<dyn std::error::Error>> {
+pub fn confirm_push() -> Result<bool> {
     confirm_simple("\r\n  Push now?", true)
 }
 
-pub fn confirm_create_branch(name: &str) -> Result<bool, Box<dyn std::error::Error>> {
+pub fn confirm_create_branch(name: &str) -> Result<bool> {
     let prompt = format!("\r\n  Create branch {CYAN}{name}{RESET}?");
     confirm_simple(&prompt, false)
 }
 
 /// Ask "Confirm undo? [y/N]" with a single keypress.
-pub fn confirm_undo() -> Result<bool, Box<dyn std::error::Error>> {
+pub fn confirm_undo() -> Result<bool> {
     confirm_simple("  Confirm undo?", false)
 }
 
-fn confirm_simple(prompt: &str, enter_yes: bool) -> Result<bool, Box<dyn std::error::Error>> {
+fn confirm_simple(prompt: &str, enter_yes: bool) -> Result<bool> {
     run_with_terminal(|stdout| {
         queue!(
             stdout,

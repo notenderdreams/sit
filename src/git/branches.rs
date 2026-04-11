@@ -1,8 +1,9 @@
 use super::common::git_command;
 use super::types::Branch;
+use crate::error::Result;
 
 /// Returns the name of the currently checked-out branch.
-pub fn current_branch() -> Result<String, Box<dyn std::error::Error>> {
+pub fn current_branch() -> Result<String> {
     let output = git_command()
         .args(["rev-parse", "--abbrev-ref", "HEAD"])
         .output()?;
@@ -36,7 +37,7 @@ pub fn upstream() -> Option<(String, String)> {
     Some((remote.to_owned(), branch.to_owned()))
 }
 
-pub fn list_local_branches() -> Result<Vec<Branch>, Box<dyn std::error::Error>> {
+pub fn list_local_branches() -> Result<Vec<Branch>> {
     let output = git_command()
         .args(["branch", "--format=%(refname:short)"])
         .output()?;
@@ -64,7 +65,7 @@ pub fn list_local_branches() -> Result<Vec<Branch>, Box<dyn std::error::Error>> 
     Ok(branches)
 }
 
-pub fn switch_branch(name: &str) -> Result<(), Box<dyn std::error::Error>> {
+pub fn switch_branch(name: &str) -> Result<()> {
     let output = git_command().args(["switch", name]).output()?;
 
     if output.status.success() {
@@ -78,7 +79,7 @@ pub fn switch_branch(name: &str) -> Result<(), Box<dyn std::error::Error>> {
     }
 }
 
-pub fn create_and_switch_branch(name: &str) -> Result<(), Box<dyn std::error::Error>> {
+pub fn create_and_switch_branch(name: &str) -> Result<()> {
     let output = git_command().args(["switch", "-c", name]).output()?;
 
     if output.status.success() {

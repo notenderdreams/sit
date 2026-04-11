@@ -1,6 +1,8 @@
 use std::path::PathBuf;
 use std::process::Command;
 
+use crate::error::Result;
+
 /// Whether a hook failure should abort the current operation.
 pub enum HookKind {
     /// Non-zero exit code aborts the operation with an error.
@@ -14,11 +16,7 @@ pub enum HookKind {
 /// Scripts are always executed via `sh` so they don't need the execute bit set
 /// and don't need a shebang line.  `env` is a list of `(KEY, value)` pairs
 /// exposed to the hook process.
-pub fn run_hook(
-    name: &str,
-    kind: HookKind,
-    env: &[(&str, &str)],
-) -> Result<(), Box<dyn std::error::Error>> {
+pub fn run_hook(name: &str, kind: HookKind, env: &[(&str, &str)]) -> Result<()> {
     let Some(path) = find_hook(name) else {
         return Ok(());
     };

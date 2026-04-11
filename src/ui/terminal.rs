@@ -5,9 +5,11 @@ use crossterm::{
     terminal::{self, ClearType},
 };
 
-pub fn run_with_terminal<T, F>(f: F) -> Result<T, Box<dyn std::error::Error>>
+use crate::error::Result;
+
+pub fn run_with_terminal<T, F>(f: F) -> Result<T>
 where
-    F: FnOnce(&mut io::Stdout) -> Result<T, Box<dyn std::error::Error>>,
+    F: FnOnce(&mut io::Stdout) -> Result<T>,
 {
     let mut stdout = io::stdout();
     terminal::enable_raw_mode()?;

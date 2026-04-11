@@ -1,6 +1,7 @@
 use super::common::git_command;
+use crate::error::Result;
 
-pub fn stage_files(paths: &[String]) -> Result<(), Box<dyn std::error::Error>> {
+pub fn stage_files(paths: &[String]) -> Result<()> {
     if paths.is_empty() {
         return Err("No files selected".into());
     }
@@ -25,7 +26,7 @@ pub fn stage_files(paths: &[String]) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-pub fn unstage_files(paths: &[String]) -> Result<(), Box<dyn std::error::Error>> {
+pub fn unstage_files(paths: &[String]) -> Result<()> {
     if paths.is_empty() {
         return Ok(());
     }

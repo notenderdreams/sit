@@ -502,6 +502,7 @@ dependencies = [
  "dirs",
  "inquire",
  "serde",
+ "thiserror",
  "toml",
 ]
 

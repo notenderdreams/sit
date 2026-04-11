@@ -1,8 +1,9 @@
+use crate::error::Result;
 use crate::git::types::{FileChange, FileStatus};
 
 use super::common::git_command;
 
-pub fn get_status() -> Result<Vec<FileChange>, Box<dyn std::error::Error>> {
+pub fn get_status() -> Result<Vec<FileChange>> {
     let output = git_command().args(["status", "--porcelain"]).output()?;
 
     if !output.status.success() {

@@ -1,5 +1,6 @@
 use super::branches::upstream;
 use super::common::git_command;
+use crate::error::Result;
 
 fn is_release_tag(tag: &str) -> bool {
     let trimmed = tag.trim();
@@ -21,7 +22,7 @@ fn is_release_tag(tag: &str) -> bool {
 }
 
 /// Return the latest semantic release tag (e.g. v1.2.3) if present.
-pub fn latest_release_tag() -> Result<Option<String>, Box<dyn std::error::Error>> {
+pub fn latest_release_tag() -> Result<Option<String>> {
     let output = git_command()
         .args(["tag", "--list", "--sort=-v:refname"])
         .output()?;
@@ -44,7 +45,7 @@ pub fn latest_release_tag() -> Result<Option<String>, Box<dyn std::error::Error>
 }
 
 /// Create a local release tag.
-pub fn create_tag(tag: &str) -> Result<(), Box<dyn std::error::Error>> {
+pub fn create_tag(tag: &str) -> Result<()> {
     if !is_release_tag(tag) {
         return Err("Tag must be semver-like (v1.2.3 or 1.2.3)".into());
     }
@@ -63,7 +64,7 @@ pub fn create_tag(tag: &str) -> Result<(), Box<dyn std::error::Error>> {
 }
 
 /// Push a tag to the default remote.
-pub fn push_tag(tag: &str) -> Result<(), Box<dyn std::error::Error>> {
+pub fn push_tag(tag: &str) -> Result<()> {
     let remote = if let Some((remote_name, _)) = upstream() {
         remote_name
     } else {

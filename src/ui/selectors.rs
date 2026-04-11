@@ -10,15 +10,13 @@ use crossterm::{
 
 use crate::categories::Category;
 use crate::config::Module;
+use crate::error::Result;
 use crate::git::Branch;
 use crate::style::{BG_SELECT, BOLD, CYAN, DIM, NAV_ARROWS, POINTER, RESET};
 
 use super::terminal::{clear_lines, run_with_terminal};
 
-pub fn select_category(
-    categories: &[Category],
-    show_emoji: bool,
-) -> Result<&str, Box<dyn std::error::Error>> {
+pub fn select_category(categories: &[Category], show_emoji: bool) -> Result<&str> {
     run_with_terminal(|stdout| {
         let mut cursor_pos: usize = 0;
         let mut filter = String::new();
@@ -26,7 +24,7 @@ pub fn select_category(
     })
 }
 
-pub fn select_module(modules: &[Module]) -> Result<Option<&str>, Box<dyn std::error::Error>> {
+pub fn select_module(modules: &[Module]) -> Result<Option<&str>> {
     run_with_terminal(|stdout| {
         let mut cursor_pos: usize = 0;
         let mut filter = String::new();
@@ -34,7 +32,7 @@ pub fn select_module(modules: &[Module]) -> Result<Option<&str>, Box<dyn std::er
     })
 }
 
-pub fn select_branch(branches: &[Branch]) -> Result<String, Box<dyn std::error::Error>> {
+pub fn select_branch(branches: &[Branch]) -> Result<String> {
     run_with_terminal(|stdout| {
         let mut cursor_pos: usize = 0;
         let mut filter = String::new();
@@ -64,7 +62,7 @@ fn category_loop<'a>(
     cursor_pos: &mut usize,
     filter: &mut String,
     stdout: &mut io::Stdout,
-) -> Result<&'a str, Box<dyn std::error::Error>> {
+) -> Result<&'a str> {
     let mut last_height = render_categories(
         categories,
         show_emoji,
@@ -264,7 +262,7 @@ fn branch_loop(
     cursor_pos: &mut usize,
     filter: &mut String,
     stdout: &mut io::Stdout,
-) -> Result<String, Box<dyn std::error::Error>> {
+) -> Result<String> {
     let mut vis = filtered_branch_indices(branches, filter);
     let mut can_create = !filter.trim().is_empty() && !has_exact_branch_match(branches, filter);
 
@@ -481,7 +479,7 @@ fn module_loop<'a>(
     cursor_pos: &mut usize,
     filter: &mut String,
     stdout: &mut io::Stdout,
-) -> Result<Option<&'a str>, Box<dyn std::error::Error>> {
+) -> Result<Option<&'a str>> {
     let mut last_height = render_modules(
         modules,
         &filtered_module_indices(modules, filter),
