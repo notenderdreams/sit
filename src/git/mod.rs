@@ -1,6 +1,7 @@
 mod branches;
 mod commits;
 mod common;
+mod log;
 mod push;
 mod remote;
 mod staging;
@@ -13,6 +14,7 @@ pub use branches::{
 };
 pub use commits::{commit, commit_amend, last_commit_files, last_commit_message, soft_reset};
 pub use common::get_repo_root;
+pub use log::log_graph;
 pub use push::{push, push_force};
 pub use remote::{branch_rename_to_main, push_origin_main, remote_add_origin};
 pub use staging::{stage_files, unstage_files};

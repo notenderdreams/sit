@@ -28,6 +28,10 @@ enum Commands {
     #[command(alias = "b")]
     Branch,
 
+    /// Show a graph view of recent commits
+    #[command(alias = "l")]
+    Log,
+
     /// Create .sit/config.toml and hook templates in the current directory
     Init,
 
@@ -72,6 +76,7 @@ pub fn run() -> Result<()> {
         None | Some(Commands::Commit) => interactive_commit(&cfg),
         Some(Commands::Categories) => show_categories(&cfg),
         Some(Commands::Branch) => switch_branch(),
+        Some(Commands::Log) => show_log(),
         Some(Commands::Init) => init_config(),
         Some(Commands::Push) => push_branch(),
         Some(Commands::Release) => release_tag(),
@@ -267,6 +272,11 @@ fn show_categories(cfg: &Config) -> Result<()> {
         }
     }
     print::blank();
+    Ok(())
+}
+
+fn show_log() -> Result<()> {
+    git::log_graph()?;
     Ok(())
 }
 

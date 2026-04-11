@@ -32,6 +32,7 @@ sit --help
 
 - `sit commit` / `sit c`: interactive commit flow
 - `sit branch` / `sit b`: switch or create branches with picker
+- `sit log` / `sit l`: show a graph view of recent commits
 - `sit push` / `sit p`: push current branch to upstream
 - `sit release` / `sit rel`: show previous release tag, prompt next version, create and push new tag
 - `sit amend` / `sit a`: amend last commit
