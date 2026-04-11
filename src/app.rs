@@ -467,10 +467,10 @@ fn init_config() -> Result<(), Box<dyn std::error::Error>> {
         false
     };
 
-    write_hook_template(&hooks_dir.join("pre-commit"), PRE_COMMIT_TEMPLATE)?;
-    write_hook_template(&hooks_dir.join("post-commit"), POST_COMMIT_TEMPLATE)?;
-    write_hook_template(&hooks_dir.join("pre-push"), PRE_PUSH_TEMPLATE)?;
-    write_hook_template(&hooks_dir.join("post-push"), POST_PUSH_TEMPLATE)?;
+    write_hook_template(&hooks_dir.join("pre-commit"), hooks::PRE_COMMIT_TEMPLATE)?;
+    write_hook_template(&hooks_dir.join("post-commit"), hooks::POST_COMMIT_TEMPLATE)?;
+    write_hook_template(&hooks_dir.join("pre-push"), hooks::PRE_PUSH_TEMPLATE)?;
+    write_hook_template(&hooks_dir.join("post-push"), hooks::POST_PUSH_TEMPLATE)?;
 
     print::blank();
     if migrated_legacy {
@@ -493,34 +493,3 @@ fn write_hook_template(
     }
     Ok(())
 }
-
-const PRE_COMMIT_TEMPLATE: &str = r#"#!/usr/bin/env sh
-# Example pre-commit hook.
-# Exit with a non-zero status to abort the commit.
-
-# echo "Running checks before commit..."
-# cargo fmt -- --check
-# cargo clippy -- -D warnings
-"#;
-
-const POST_COMMIT_TEMPLATE: &str = r#"#!/usr/bin/env sh
-# Example post-commit hook.
-# Non-zero exit code will not abort (commit already created).
-
-# echo "Committed: $SIT_MESSAGE"
-"#;
-
-const PRE_PUSH_TEMPLATE: &str = r#"#!/usr/bin/env sh
-# Example pre-push hook.
-# Exit with a non-zero status to abort push.
-
-# echo "Running tests before push..."
-# cargo test
-"#;
-
-const POST_PUSH_TEMPLATE: &str = r#"#!/usr/bin/env sh
-# Example post-push hook.
-# Non-zero exit code will not abort push.
-
-# echo "Pushed $SIT_REMOTE/$SIT_BRANCH"
-"#;

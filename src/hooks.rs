@@ -73,3 +73,34 @@ fn find_hook(name: &str) -> Option<PathBuf> {
     }
     None
 }
+
+pub const PRE_COMMIT_TEMPLATE: &str = r#"#!/usr/bin/env sh
+# Example pre-commit hook.
+# Exit with a non-zero status to abort the commit.
+
+# echo "Running checks before commit..."
+# cargo fmt -- --check
+# cargo clippy -- -D warnings
+"#;
+
+pub const POST_COMMIT_TEMPLATE: &str = r#"#!/usr/bin/env sh
+# Example post-commit hook.
+# Non-zero exit code will not abort (commit already created).
+
+# echo "Committed: $SIT_MESSAGE"
+"#;
+
+pub const PRE_PUSH_TEMPLATE: &str = r#"#!/usr/bin/env sh
+# Example pre-push hook.
+# Exit with a non-zero status to abort push.
+
+# echo "Running tests before push..."
+# cargo test
+"#;
+
+pub const POST_PUSH_TEMPLATE: &str = r#"#!/usr/bin/env sh
+# Example post-push hook.
+# Non-zero exit code will not abort push.
+
+# echo "Pushed $SIT_REMOTE/$SIT_BRANCH"
+"#;
