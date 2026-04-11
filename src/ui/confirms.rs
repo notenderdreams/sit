@@ -1,12 +1,12 @@
 use std::io::{self, Write};
 
+use crate::style::{BOLD, CYAN, DIM, RESET, TREE_LAST, TREE_MID};
 use crossterm::{
     event::{self, Event, KeyCode, KeyEventKind},
     queue,
     style::Print,
 };
 
-use super::style::{BOLD, CYAN, DIM, RESET};
 use super::terminal::{clear_lines, run_with_terminal};
 
 /// Show a commit preview and ask the user to confirm with y/N.
@@ -75,7 +75,7 @@ fn render_commit_preview(
 
     let last = files.len().saturating_sub(1);
     for (i, f) in files.iter().enumerate() {
-        let branch = if i == last { "└──" } else { "├──" };
+        let branch = if i == last { TREE_LAST } else { TREE_MID };
         queue!(stdout, Print(format!("    {DIM}{branch}{RESET} {f}\r\n")))?;
     }
 

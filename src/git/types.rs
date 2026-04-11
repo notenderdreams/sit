@@ -1,3 +1,8 @@
+use crate::style::{
+    CYAN, GREEN, GREY, ICON_ADDED, ICON_DELETED, ICON_MODIFIED, ICON_RENAMED, ICON_UNTRACKED, RED,
+    YELLOW,
+};
+
 #[derive(Debug, Clone)]
 pub struct FileChange {
     pub path: String,
@@ -16,21 +21,21 @@ pub enum FileStatus {
 impl FileStatus {
     pub fn color_code(&self) -> &str {
         match self {
-            Self::Added => "\x1b[32m",
-            Self::Modified => "\x1b[33m",
-            Self::Deleted => "\x1b[31m",
-            Self::Renamed => "\x1b[36m",
-            Self::Untracked => "\x1b[90m",
+            Self::Added => GREEN,
+            Self::Modified => YELLOW,
+            Self::Deleted => RED,
+            Self::Renamed => CYAN,
+            Self::Untracked => GREY,
         }
     }
 
     pub fn icon(&self) -> &str {
         match self {
-            Self::Added => "+",
-            Self::Modified => "~",
-            Self::Deleted => "✕",
-            Self::Renamed => "→",
-            Self::Untracked => "?",
+            Self::Added => ICON_ADDED,
+            Self::Modified => ICON_MODIFIED,
+            Self::Deleted => ICON_DELETED,
+            Self::Renamed => ICON_RENAMED,
+            Self::Untracked => ICON_UNTRACKED,
         }
     }
 

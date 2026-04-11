@@ -11,8 +11,8 @@ use crossterm::{
 use crate::categories::Category;
 use crate::config::Module;
 use crate::git::Branch;
+use crate::style::{BG_SELECT, BOLD, CYAN, DIM, NAV_ARROWS, POINTER, RESET};
 
-use super::style::{BG_SELECT, BOLD, CYAN, DIM, RESET};
 use super::terminal::{clear_lines, run_with_terminal};
 
 pub fn select_category(
@@ -199,7 +199,7 @@ fn render_categories(
             let bg = if is_cursor { BG_SELECT } else { "" };
             let end_bg = if is_cursor { RESET } else { "" };
             let pointer = if is_cursor {
-                format!("{CYAN}›{RESET}")
+                format!("{CYAN}{POINTER}{RESET}")
             } else {
                 " ".to_string()
             };
@@ -232,7 +232,7 @@ fn render_categories(
     queue!(
         stdout,
         Print(format!(
-            "\r\n  {DIM}↑↓{RESET} move  {DIM}type{RESET} filter  {DIM}enter{RESET} select  {DIM}esc{RESET} cancel"
+            "\r\n  {DIM}{NAV_ARROWS}{RESET} move  {DIM}type{RESET} filter  {DIM}enter{RESET} select  {DIM}esc{RESET} cancel"
         ))
     )?;
 
@@ -403,7 +403,7 @@ fn render_branches(
         let bg = if is_cursor { BG_SELECT } else { "" };
         let end_bg = if is_cursor { RESET } else { "" };
         let pointer = if is_cursor {
-            format!("{CYAN}›{RESET}")
+            format!("{CYAN}{POINTER}{RESET}")
         } else {
             " ".to_string()
         };
@@ -430,7 +430,7 @@ fn render_branches(
         let bg = if is_cursor { BG_SELECT } else { "" };
         let end_bg = if is_cursor { RESET } else { "" };
         let pointer = if is_cursor {
-            format!("{CYAN}›{RESET}")
+            format!("{CYAN}{POINTER}{RESET}")
         } else {
             " ".to_string()
         };
@@ -452,7 +452,7 @@ fn render_branches(
     queue!(
         stdout,
         Print(format!(
-            "\r\n  {DIM}↑↓{RESET} move  {DIM}type{RESET} search  {DIM}enter{RESET} select  {DIM}esc{RESET} cancel"
+            "\r\n  {DIM}{NAV_ARROWS}{RESET} move  {DIM}type{RESET} search  {DIM}enter{RESET} select  {DIM}esc{RESET} cancel"
         ))
     )?;
 
@@ -611,7 +611,7 @@ fn render_modules(
         let bg = if is_cursor { BG_SELECT } else { "" };
         let end_bg = if is_cursor { RESET } else { "" };
         let pointer = if is_cursor {
-            format!("{CYAN}›{RESET}")
+            format!("{CYAN}{POINTER}{RESET}")
         } else {
             " ".to_string()
         };
@@ -632,7 +632,7 @@ fn render_modules(
     let bg = if is_cursor { BG_SELECT } else { "" };
     let end_bg = if is_cursor { RESET } else { "" };
     let pointer = if is_cursor {
-        format!("{CYAN}›{RESET}")
+        format!("{CYAN}{POINTER}{RESET}")
     } else {
         " ".to_string()
     };
@@ -648,7 +648,7 @@ fn render_modules(
     queue!(
         stdout,
         Print(format!(
-            "\r\n  {DIM}↑↓{RESET} move  {DIM}type{RESET} filter  {DIM}enter{RESET} select  {DIM}esc{RESET} cancel"
+            "\r\n  {DIM}{NAV_ARROWS}{RESET} move  {DIM}type{RESET} filter  {DIM}enter{RESET} select  {DIM}esc{RESET} cancel"
         ))
     )?;
 

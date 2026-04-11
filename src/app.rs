@@ -2,6 +2,7 @@ use clap::{Parser, Subcommand};
 use colored::Colorize;
 
 use crate::config::Config;
+use crate::style::{DIM, ICON_RENAMED, RESET, TREE_LAST, TREE_MID};
 use crate::{git, hooks, picker, print, ui};
 
 /// Structured interactive commits
@@ -202,7 +203,7 @@ fn switch_branch() -> Result<(), Box<dyn std::error::Error>> {
     if branches.iter().any(|b| b.name == selected) {
         git::switch_branch(&selected)?;
         print::blank();
-        print::success_with_details("Switched", &format!("→ {selected}"));
+        print::success_with_details("Switched", &format!("{ICON_RENAMED} {selected}"));
         print::blank();
         return Ok(());
     }
@@ -216,7 +217,10 @@ fn switch_branch() -> Result<(), Box<dyn std::error::Error>> {
 
     git::create_and_switch_branch(&selected)?;
     print::blank();
-    print::success_with_details("Created and switched", &format!("→ {selected}"));
+    print::success_with_details(
+        "Created and switched",
+        &format!("{ICON_RENAMED} {selected}"),
+    );
     print::blank();
     Ok(())
 }
@@ -302,10 +306,16 @@ fn do_push() -> Result<(), Box<dyn std::error::Error>> {
     if result.set_upstream {
         print::success_with_details(
             "Pushed",
-            &format!("→ {}/{} (upstream set)", result.remote, result.branch),
+            &format!(
+                "{ICON_RENAMED} {}/{} (upstream set)",
+                result.remote, result.branch
+            ),
         );
     } else {
-        print::success_with_details("Pushed", &format!("→ {}/{}", result.remote, result.branch));
+        print::success_with_details(
+            "Pushed",
+            &format!("{ICON_RENAMED} {}/{}", result.remote, result.branch),
+        );
     }
     hooks::run_hook(
         "post-push",
@@ -398,8 +408,8 @@ fn undo_commit() -> Result<(), Box<dyn std::error::Error>> {
     print::hint("Files (will remain staged):");
     let last = last_files.len().saturating_sub(1);
     for (i, f) in last_files.iter().enumerate() {
-        let branch = if i == last { "└──" } else { "├──" };
-        println!("    \x1b[2m{branch}\x1b[0m {f}");
+        let branch = if i == last { TREE_LAST } else { TREE_MID };
+        println!("    {DIM}{branch}{RESET} {f}");
     }
     print::blank();
 
@@ -424,12 +434,18 @@ fn do_push_force() -> Result<(), Box<dyn std::error::Error>> {
     if result.set_upstream {
         print::success_with_details(
             "Pushed",
-            &format!("→ {}/{} (upstream set)", result.remote, result.branch),
+            &format!(
+                "{ICON_RENAMED} {}/{} (upstream set)",
+                result.remote, result.branch
+            ),
         );
     } else {
         print::success_with_details(
             "Pushed",
-            &format!("→ {}/{} (force-with-lease)", result.remote, result.branch),
+            &format!(
+                "{ICON_RENAMED} {}/{} (force-with-lease)",
+                result.remote, result.branch
+            ),
         );
     }
     hooks::run_hook(
@@ -453,14 +469,17 @@ fn connect_repo(username: &str, repo: &str) -> Result<(), Box<dyn std::error::Er
     git::remote_add_origin(username, repo)?;
     print::success_with_details(
         "Remote added",
-        &format!("origin → https://github.com/{username}/{repo}.git"),
+        &format!("origin {ICON_RENAMED} https://github.com/{username}/{repo}.git"),
     );
 
     git::branch_rename_to_main()?;
     print::success_with_details("Branch", "renamed to main");
 
     git::push_origin_main()?;
-    print::success_with_details("Pushed", "→ origin/main (upstream set)");
+    print::success_with_details(
+        "Pushed",
+        &format!("{ICON_RENAMED} origin/main (upstream set)"),
+    );
 
     print::blank();
     Ok(())

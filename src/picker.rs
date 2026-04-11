@@ -9,11 +9,10 @@ use crossterm::{
 };
 
 use crate::git::{FileChange, FileStatus};
-
-const RESET: &str = "\x1b[0m";
-const BOLD: &str = "\x1b[1m";
-const DIM: &str = "\x1b[2m";
-const BG_SELECT: &str = "\x1b[48;5;236m";
+use crate::style::{
+    BG_SELECT, BOLD, CHECK_SELECTED, CHECK_UNSELECTED, DIM, NAV_ARROWS, POINTER, RESET, TREE_LAST,
+    TREE_MID,
+};
 
 struct Item {
     change: FileChange,
@@ -110,15 +109,11 @@ fn run_loop(
                     for (i, item) in selected.iter().enumerate() {
                         let c = item.change.status.color_code();
                         let icon = item.change.status.icon();
-                        let conn = if i == count - 1 {
-                            "└── "
-                        } else {
-                            "├── "
-                        };
+                        let conn = if i == count - 1 { TREE_LAST } else { TREE_MID };
                         queue!(
                             stdout,
                             Print(format!(
-                                "    {DIM}{conn}{RESET}{c}{icon} {}{RESET}\r\n",
+                                "    {DIM}{conn} {RESET}{c}{icon} {}{RESET}\r\n",
                                 item.change.path
                             ))
                         )?;
@@ -175,17 +170,17 @@ fn render(
         let c = item.change.status.color_code();
         let icon = item.change.status.icon();
 
-        let connector = if is_last { "└── " } else { "├── " };
+        let connector = if is_last { TREE_LAST } else { TREE_MID };
 
         let checkbox = if item.selected {
-            format!("{c}◉{RESET}")
+            format!("{c}{CHECK_SELECTED}{RESET}")
         } else {
-            format!("{DIM}○{RESET}")
+            format!("{DIM}{CHECK_UNSELECTED}{RESET}")
         };
 
         let bg = if is_cursor { BG_SELECT } else { "" };
         let end = if is_cursor { RESET } else { "" };
-        let pointer = if is_cursor { "›" } else { " " };
+        let pointer = if is_cursor { POINTER } else { " " };
 
         queue!(
             stdout,
@@ -200,7 +195,7 @@ fn render(
     queue!(
         stdout,
         Print(format!(
-            "\r\n  {DIM}space{RESET} toggle  {DIM}a{RESET} all  {DIM}↑↓{RESET} move  {DIM}enter{RESET} confirm  {DIM}esc{RESET} cancel"
+            "\r\n  {DIM}space{RESET} toggle  {DIM}a{RESET} all  {DIM}{NAV_ARROWS}{RESET} move  {DIM}enter{RESET} confirm  {DIM}esc{RESET} cancel"
         ))
     )?;
 

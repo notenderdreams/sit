@@ -5,4 +5,5 @@ pub mod git;
 pub mod hooks;
 pub mod picker;
 pub mod print;
+pub mod style;
 pub mod ui;
