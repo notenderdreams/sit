@@ -13,9 +13,9 @@ struct RawConfig {
     /// Categories as a map:
     /// ```toml
     /// [categories]
-    /// feat = { emoji = "✨", desc = "Add a new feature" }
-    /// fix  = { emoji = "🐛", desc = "Fix a bug" }
-    /// # or shorthand:
+    /// feat = { desc = "Add a new feature" }
+    /// fix  = { desc = "Fix a bug" }
+    /// # or shorthand string values:
     /// feat = "Add a new feature"
     /// ```
     categories: Option<toml::value::Table>,
@@ -34,10 +34,6 @@ struct RawCommit {
     template: Option<String>,
     /// Whether to prompt for a description body
     ask_description: Option<bool>,
-    /// Whether to attach emoji before semantic prefix in the commit subject
-    attach_emoji: Option<bool>,
-    /// Backward compatibility for older config files
-    show_emoji: Option<bool>,
     /// Automatically push after every commit without asking
     auto_push: Option<bool>,
 }
@@ -45,7 +41,6 @@ struct RawCommit {
 #[derive(Debug, Clone, Default, Deserialize)]
 struct RawCategory {
     desc: Option<String>,
-    emoji: Option<String>,
 }
 
 // ── Resolved config ──────────────────────────────────────
@@ -69,8 +64,6 @@ pub struct CommitConfig {
     pub template: String,
     /// Prompt the user for a long description
     pub ask_description: bool,
-    /// Attach emoji before semantic prefix in the commit subject
-    pub attach_emoji: bool,
     /// Push automatically after every commit (skip the "Push now?" prompt)
     pub auto_push: bool,
 }
@@ -80,7 +73,6 @@ impl Default for CommitConfig {
         Self {
             template: "$type($mod): $message".into(),
             ask_description: true,
-            attach_emoji: false,
             auto_push: false,
         }
     }
@@ -95,7 +87,6 @@ impl Default for Config {
                 .map(|c| Category {
                     name: c.name.to_owned(),
                     description: c.description.to_owned(),
-                    emoji: c.emoji.to_owned(),
                 })
                 .collect(),
             modules: vec![],
@@ -139,9 +130,6 @@ impl Config {
             if let Some(v) = c.ask_description {
                 self.commit.ask_description = v;
             }
-            if let Some(v) = c.attach_emoji.or(c.show_emoji) {
-                self.commit.attach_emoji = v;
-            }
             if let Some(v) = c.auto_push {
                 self.commit.auto_push = v;
             }
@@ -149,18 +137,13 @@ impl Config {
 
         // Categories – if provided, *replace* the full list
         if let Some(cats) = raw.categories {
-            let mut used_shorthand = false;
             self.categories = cats
                 .into_iter()
                 .filter_map(|(name, value)| match value {
-                    toml::Value::String(desc) => {
-                        used_shorthand = true;
-                        Some(Category {
-                            name,
-                            emoji: String::new(),
-                            description: desc,
-                        })
-                    }
+                    toml::Value::String(desc) => Some(Category {
+                        name,
+                        description: desc,
+                    }),
                     other => {
                         let rc: RawCategory = match other.try_into() {
                             Ok(v) => v,
@@ -175,16 +158,11 @@ impl Config {
 
                         Some(Category {
                             name,
-                            emoji: rc.emoji.unwrap_or_default(),
                             description: rc.desc.unwrap_or_default(),
                         })
                     }
                 })
                 .collect();
-
-            if used_shorthand {
-                self.commit.attach_emoji = false;
-            }
         }
 
         // Modules – if provided, *replace* the full list
@@ -238,23 +216,7 @@ impl Config {
             }
         }
 
-        let subject = result.trim().to_owned();
-        if !self.commit.attach_emoji {
-            return subject;
-        }
-
-        let emoji = self
-            .categories
-            .iter()
-            .find(|c| c.name == category)
-            .map(|c| c.emoji.trim())
-            .unwrap_or("");
-
-        if emoji.is_empty() {
-            subject
-        } else {
-            format!("{}{}", emoji, subject)
-        }
+        result.trim().to_owned()
     }
 
     /// Build full commit message (subject + optional description).

@@ -22,7 +22,7 @@ pub fn interactive_commit(cfg: &Config) -> Result<()> {
         return Ok(());
     }
 
-    let category = ui::select_category(&cfg.categories, cfg.commit.attach_emoji)?;
+    let category = ui::select_category(&cfg.categories)?;
 
     finalize_commit_with_files(cfg, category, None, selected_files)
 }
