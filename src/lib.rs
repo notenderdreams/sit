@@ -1,5 +1,6 @@
 pub mod app;
 pub mod categories;
+pub mod cmd;
 pub mod config;
 pub mod error;
 pub mod git;
