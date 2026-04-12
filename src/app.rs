@@ -93,7 +93,7 @@ fn category_shortcut_commit(cfg: &Config, args: &[String]) -> Result<()> {
     };
 
     if !cfg.categories.iter().any(|c| c.name == category) {
-        return Err(format!("Unknown command or category: {category}").into());
+        return git::forward_command(args);
     }
 
     let inline_message = if args.len() > 1 {
