@@ -23,8 +23,8 @@ jobs:
       - name: Cache Rust artifacts
         uses: Swatinem/rust-cache@v2
 
-      - name: Run tests
-        run: cargo test --all-features --workspace
+      - name: Cargo test check
+        run: cargo test --workspace --all-features --all-targets
 
   rustfmt:
     name: Rustfmt
