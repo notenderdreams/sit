@@ -80,7 +80,7 @@ fn finalize_commit_with_files(
 
     let subject = full_message.lines().next().unwrap_or(&full_message);
 
-    if !ui::confirm_commit(subject, "", &selected_files)? {
+    if !ui::confirm_commit(subject, &selected_files)? {
         print::blank();
         print::hint("Aborted");
         print::blank();

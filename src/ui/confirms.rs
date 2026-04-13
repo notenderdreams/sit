@@ -12,17 +12,12 @@ use crate::error::Result;
 
 /// Show a commit preview and ask the user to confirm with y/N.
 /// Returns `true` if the user pressed y/Y, `false` on n/N/Esc/any other key.
-pub fn confirm_commit(subject: &str, emoji: &str, files: &[String]) -> Result<bool> {
-    run_with_terminal(|stdout| confirm_commit_loop(subject, emoji, files, stdout))
+pub fn confirm_commit(subject: &str, files: &[String]) -> Result<bool> {
+    run_with_terminal(|stdout| confirm_commit_loop(subject, files, stdout))
 }
 
-fn confirm_commit_loop(
-    subject: &str,
-    emoji: &str,
-    files: &[String],
-    stdout: &mut io::Stdout,
-) -> Result<bool> {
-    let line_count = render_commit_preview(subject, emoji, files, stdout)?;
+fn confirm_commit_loop(subject: &str, files: &[String], stdout: &mut io::Stdout) -> Result<bool> {
+    let line_count = render_commit_preview(subject, files, stdout)?;
 
     loop {
         if let Event::Key(key) = event::read()? {
@@ -46,7 +41,6 @@ fn confirm_commit_loop(
 
 fn render_commit_preview(
     subject: &str,
-    emoji: &str,
     files: &[String],
     stdout: &mut io::Stdout,
 ) -> io::Result<usize> {
@@ -54,18 +48,10 @@ fn render_commit_preview(
     queue!(stdout, Print(format!("  {BOLD}Preview commit:{RESET}\r\n")))?;
     queue!(stdout, Print("\r\n"))?;
 
-    let trimmed_emoji = emoji.trim();
-    if trimmed_emoji.is_empty() {
-        queue!(
-            stdout,
-            Print(format!("    {CYAN}{BOLD}{subject}{RESET}\r\n"))
-        )?;
-    } else {
-        queue!(
-            stdout,
-            Print(format!("    {emoji}{CYAN}{BOLD}{subject}{RESET}\r\n"))
-        )?;
-    }
+    queue!(
+        stdout,
+        Print(format!("    {CYAN}{BOLD}{subject}{RESET}\r\n"))
+    )?;
 
     queue!(stdout, Print("\r\n"))?;
     queue!(stdout, Print(format!("  {BOLD}Files:{RESET}\r\n")))?;

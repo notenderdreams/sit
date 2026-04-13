@@ -69,8 +69,7 @@ fn run_loop(
     cursor_pos: &mut usize,
     stdout: &mut io::Stdout,
 ) -> io::Result<bool> {
-    let mut last_height: usize = 0;
-    last_height = render(items, *cursor_pos, last_height, stdout)?;
+    let mut last_height = render(items, *cursor_pos, 0, stdout)?;
 
     loop {
         if let Event::Key(key) = event::read()? {

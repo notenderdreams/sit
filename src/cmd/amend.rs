@@ -32,7 +32,7 @@ pub fn amend_commit(cfg: &Config) -> Result<()> {
 
     let subject = new_message.lines().next().unwrap_or(&new_message);
 
-    if !ui::confirm_commit(subject, "", &preview_files)? {
+    if !ui::confirm_commit(subject, &preview_files)? {
         if !staged_files.is_empty() {
             let _ = git::unstage_files(&staged_files);
         }
@@ -47,6 +47,13 @@ pub fn amend_commit(cfg: &Config) -> Result<()> {
     print::blank();
     print::success_with_details("Amended", &new_message);
     print::blank();
+
+    let can_push = git::upstream().is_some() || git::has_remote("origin");
+    if !can_push {
+        print::hint("No remote configured; skipping push");
+        print::blank();
+        return Ok(());
+    }
 
     if cfg.commit.auto_push {
         do_push_force()?;
