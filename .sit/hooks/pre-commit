@@ -1,15 +1,24 @@
 #!/bin/sh
 set -e
 
-echo "Checking formatting..."
-cargo fmt -- --check || {
-    echo "Run 'cargo fmt' to fix formatting."
-    exit 1
-}
+# echo "Checking formatting..."
+# cargo fmt -- --check || {
+#     echo "Run 'cargo fmt' to fix formatting."
+#     exit 1
+# }
+
+echo "Applying formatting..."
+cargo fmt 
 
 echo "Running clippy..."
 cargo clippy -- -D warnings || {
     echo "Fix clippy warnings before committing."
+    exit 1
+}
+
+echo "Running tests..."
+cargo test || {
+    echo "Fix failing tests before committing."
     exit 1
 }
 

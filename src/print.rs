@@ -1,11 +1,9 @@
+use crate::style::{PAD, TAG_ERROR, TAG_INFO, TAG_OK, TAG_WARN};
 use colored::Colorize;
-
-/// Indentation prefix for all messages.
-const PAD: &str = "  ";
 
 /// Print a success message:  `  [OK] msg`
 pub fn success(msg: &str) {
-    println!("{PAD}{} {}", "[OK]".green().bold(), msg.bold());
+    println!("{PAD}{} {}", TAG_OK.green().bold(), msg.bold());
 }
 
 /// Print a success message with detail lines underneath.
@@ -18,17 +16,17 @@ pub fn success_with_details(msg: &str, details: &str) {
 
 /// Print an error message to stderr:  `  [ERROR] msg`
 pub fn error(msg: &str) {
-    eprintln!("{PAD}{} {}", "[ERROR]".red().bold(), msg);
+    eprintln!("{PAD}{} {}", TAG_ERROR.red().bold(), msg);
 }
 
 /// Print a warning message:  `  [WARN] msg`
 pub fn warn(msg: &str) {
-    eprintln!("{PAD}{} {}", "[WARN]".yellow().bold(), msg.yellow());
+    eprintln!("{PAD}{} {}", TAG_WARN.yellow().bold(), msg.yellow());
 }
 
 /// Print an informational message:  `  [INFO] msg`
 pub fn info(msg: &str) {
-    println!("{PAD}{} {}", "[INFO]".blue().bold(), msg);
+    println!("{PAD}{} {}", TAG_INFO.blue().bold(), msg);
 }
 
 /// Print a dimmed hint line:  `  msg`

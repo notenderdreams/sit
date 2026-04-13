@@ -1,8 +1,11 @@
 pub mod app;
 pub mod categories;
+pub mod cmd;
 pub mod config;
+pub mod error;
 pub mod git;
 pub mod hooks;
 pub mod picker;
 pub mod print;
+pub mod style;
 pub mod ui;
