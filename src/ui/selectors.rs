@@ -24,9 +24,14 @@ pub fn select_category(categories: &[Category], show_emoji: bool) -> Result<&str
     })
 }
 
-pub fn select_module(modules: &[Module]) -> Result<Option<&str>> {
+pub fn select_module<'a>(
+    modules: &'a [Module],
+    default_module: Option<&str>,
+) -> Result<Option<&'a str>> {
     run_with_terminal(|stdout| {
-        let mut cursor_pos: usize = 0;
+        let mut cursor_pos: usize = default_module
+            .and_then(|name| modules.iter().position(|m| m.name == name))
+            .unwrap_or(0);
         let mut filter = String::new();
         module_loop(modules, &mut cursor_pos, &mut filter, stdout)
     })

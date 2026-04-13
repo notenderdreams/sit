@@ -59,7 +59,8 @@ fn finalize_commit_with_files(
     selected_files: Vec<String>,
 ) -> Result<()> {
     let module = if cfg.has_modules() {
-        ui::select_module(&cfg.modules)?
+        let default_module = cfg.recommended_module_name(&selected_files);
+        ui::select_module(&cfg.modules, default_module)?
     } else {
         None
     };
