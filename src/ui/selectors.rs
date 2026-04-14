@@ -16,11 +16,11 @@ use crate::style::{BG_SELECT, BOLD, CYAN, DIM, NAV_ARROWS, POINTER, RESET};
 
 use super::terminal::{clear_lines, run_with_terminal};
 
-pub fn select_category(categories: &[Category], show_emoji: bool) -> Result<&str> {
+pub fn select_category(categories: &[Category]) -> Result<&str> {
     run_with_terminal(|stdout| {
         let mut cursor_pos: usize = 0;
         let mut filter = String::new();
-        category_loop(categories, show_emoji, &mut cursor_pos, &mut filter, stdout)
+        category_loop(categories, &mut cursor_pos, &mut filter, stdout)
     })
 }
 
@@ -63,14 +63,12 @@ fn filtered_indices(categories: &[Category], filter: &str) -> Vec<usize> {
 
 fn category_loop<'a>(
     categories: &'a [Category],
-    show_emoji: bool,
     cursor_pos: &mut usize,
     filter: &mut String,
     stdout: &mut io::Stdout,
 ) -> Result<&'a str> {
     let mut last_height = render_categories(
         categories,
-        show_emoji,
         &filtered_indices(categories, filter),
         *cursor_pos,
         filter,
@@ -108,23 +106,13 @@ fn category_loop<'a>(
                     if let Some(&idx) = vis.get(*cursor_pos) {
                         let cat = &categories[idx];
                         clear_lines(last_height, stdout)?;
-                        if show_emoji {
-                            queue!(
-                                stdout,
-                                Print(format!(
-                                    "\r\n  {BOLD}  Type{RESET}  {} {CYAN}{}{RESET} {DIM}{}{RESET}\r\n\r\n",
-                                    cat.emoji, cat.name, cat.description
-                                ))
-                            )?;
-                        } else {
-                            queue!(
-                                stdout,
-                                Print(format!(
-                                    "\r\n  {BOLD}  Type{RESET}  {CYAN}{}{RESET} {DIM}{}{RESET}\r\n\r\n",
-                                    cat.name, cat.description
-                                ))
-                            )?;
-                        }
+                        queue!(
+                            stdout,
+                            Print(format!(
+                                "\r\n  {BOLD}  Type{RESET}  {CYAN}{}{RESET} {DIM}{}{RESET}\r\n\r\n",
+                                cat.name, cat.description
+                            ))
+                        )?;
                         stdout.flush()?;
                         return Ok(&cat.name);
                     }
@@ -140,22 +128,14 @@ fn category_loop<'a>(
             if *cursor_pos >= vis.len() {
                 *cursor_pos = vis.len().saturating_sub(1);
             }
-            last_height = render_categories(
-                categories,
-                show_emoji,
-                &vis,
-                *cursor_pos,
-                filter,
-                last_height,
-                stdout,
-            )?;
+            last_height =
+                render_categories(categories, &vis, *cursor_pos, filter, last_height, stdout)?;
         }
     }
 }
 
 fn render_categories(
     categories: &[Category],
-    show_emoji: bool,
     visible: &[usize],
     cursor_pos: usize,
     filter: &str,
@@ -207,28 +187,15 @@ fn render_categories(
                 " ".to_string()
             };
 
-            if show_emoji {
-                queue!(
-                    stdout,
-                    Print(format!(
-                        "  {bg} {pointer}  {}  {BOLD}{:<width$}{RESET}{bg}  {DIM}{}{end_bg}{RESET}\r\n",
-                        cat.emoji,
-                        cat.name,
-                        cat.description,
-                        width = max_name
-                    ))
-                )?;
-            } else {
-                queue!(
-                    stdout,
-                    Print(format!(
-                        "  {bg} {pointer}  {BOLD}{:<width$}{RESET}{bg}  {DIM}{}{end_bg}{RESET}\r\n",
-                        cat.name,
-                        cat.description,
-                        width = max_name
-                    ))
-                )?;
-            }
+            queue!(
+                stdout,
+                Print(format!(
+                    "  {bg} {pointer}  {BOLD}{:<width$}{RESET}{bg}  {DIM}{}{end_bg}{RESET}\r\n",
+                    cat.name,
+                    cat.description,
+                    width = max_name
+                ))
+            )?;
         }
     }
 

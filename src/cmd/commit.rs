@@ -4,7 +4,7 @@ use crate::{git, hooks, picker, print, ui};
 
 use super::push::do_push;
 
-pub fn interactive_commit(cfg: &Config) -> Result<()> {
+pub fn interactive_commit(cfg: &Config, hook_env: &[(String, String)]) -> Result<()> {
     let changes = git::get_status()?;
 
     if changes.is_empty() {
@@ -22,15 +22,16 @@ pub fn interactive_commit(cfg: &Config) -> Result<()> {
         return Ok(());
     }
 
-    let category = ui::select_category(&cfg.categories, cfg.commit.attach_emoji)?;
+    let category = ui::select_category(&cfg.categories)?;
 
-    finalize_commit_with_files(cfg, category, None, selected_files)
+    finalize_commit_with_files(cfg, category, None, selected_files, hook_env)
 }
 
 pub fn commit_with_category_shortcut(
     cfg: &Config,
     category: &str,
     inline_message: Option<String>,
+    hook_env: &[(String, String)],
 ) -> Result<()> {
     let changes = git::get_status()?;
 
@@ -49,7 +50,7 @@ pub fn commit_with_category_shortcut(
         return Ok(());
     }
 
-    finalize_commit_with_files(cfg, category, inline_message, selected_files)
+    finalize_commit_with_files(cfg, category, inline_message, selected_files, hook_env)
 }
 
 fn finalize_commit_with_files(
@@ -57,6 +58,7 @@ fn finalize_commit_with_files(
     category: &str,
     inline_message: Option<String>,
     selected_files: Vec<String>,
+    hook_env: &[(String, String)],
 ) -> Result<()> {
     let module = if cfg.has_modules() {
         let default_module = cfg.recommended_module_name(&selected_files);
@@ -87,15 +89,16 @@ fn finalize_commit_with_files(
         return Ok(());
     }
 
-    hooks::run_hook(
-        "pre-commit",
-        hooks::HookKind::Pre,
+    let pre_commit_env = hooks::merge_hook_env(
         &[
             ("SIT_CATEGORY", category),
             ("SIT_MESSAGE", &full_message),
             ("SIT_FILES", &selected_files.join(":")),
         ],
-    )?;
+        hook_env,
+    );
+    let pre_commit_env_refs = hooks::hook_env_refs(&pre_commit_env);
+    hooks::run_hook("pre-commit", hooks::HookKind::Pre, &pre_commit_env_refs)?;
 
     git::stage_files(&selected_files)?;
     git::commit(&full_message)?;
@@ -104,16 +107,17 @@ fn finalize_commit_with_files(
     print::success_with_details("Committed", &full_message);
     print::blank();
 
-    hooks::run_hook(
-        "post-commit",
-        hooks::HookKind::Post,
+    let post_commit_env = hooks::merge_hook_env(
         &[("SIT_CATEGORY", category), ("SIT_MESSAGE", &full_message)],
-    )?;
+        hook_env,
+    );
+    let post_commit_env_refs = hooks::hook_env_refs(&post_commit_env);
+    hooks::run_hook("post-commit", hooks::HookKind::Post, &post_commit_env_refs)?;
 
     if cfg.commit.auto_push {
-        do_push()?;
+        do_push(hook_env)?;
     } else if ui::confirm_push()?
-        && let Err(e) = do_push()
+        && let Err(e) = do_push(hook_env)
     {
         print::error(&e.to_string());
         print::blank();

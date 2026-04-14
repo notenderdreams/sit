@@ -16,10 +16,14 @@ cargo clippy -- -D warnings || {
     exit 1
 }
 
-echo "Running tests..."
-cargo test || {
-    echo "Fix failing tests before committing."
-    exit 1
-}
+if [ "$SKIP_TEST" = "1" ]; then
+    echo "Skipping tests (SKIP_TEST=1)."
+else
+    echo "Running tests..."
+    cargo test || {
+        echo "Fix failing tests before committing."
+        exit 1
+    }
+fi
 
 echo "All checks passed."

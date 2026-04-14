@@ -4,7 +4,7 @@ use crate::{git, picker, print, ui};
 
 use super::push::do_push_force;
 
-pub fn amend_commit(cfg: &Config) -> Result<()> {
+pub fn amend_commit(cfg: &Config, hook_env: &[(String, String)]) -> Result<()> {
     let last_message = git::last_commit_message()?;
     let last_files = git::last_commit_files()?;
 
@@ -56,9 +56,9 @@ pub fn amend_commit(cfg: &Config) -> Result<()> {
     }
 
     if cfg.commit.auto_push {
-        do_push_force()?;
+        do_push_force(hook_env)?;
     } else if ui::confirm_push()?
-        && let Err(e) = do_push_force()
+        && let Err(e) = do_push_force(hook_env)
     {
         print::error(&e.to_string());
         print::blank();
