@@ -18,7 +18,7 @@ pub use common::get_repo_root;
 pub use forward::forward_command;
 pub use log::log_graph;
 pub use push::{push, push_force};
-pub use remote::{branch_rename_to_main, push_origin_main, remote_add_origin};
+pub use remote::{branch_rename_to_main, has_remote, push_origin_main, remote_add_origin};
 pub use staging::{stage_files, unstage_files};
 pub use status::get_status;
 pub use tags::{create_tag, latest_release_tag, push_tag};

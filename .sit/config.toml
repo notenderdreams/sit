@@ -4,11 +4,8 @@ ask_description = true
 auto_push = false
 
 [modules]
-core     = "Core logic"
-cli      = "CLI interface"
-config   = "Configuration system"
-ui       = "User interface"
-git      = "Git operations"
+git      = { desc = "Git operations", path = "src/git" }
+ui       = { desc = "User interface", paths = ["src/ui", "src/style"] }
 
 [categories]
 feat = "Add a new feature"

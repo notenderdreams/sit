@@ -23,7 +23,7 @@ struct RawConfig {
     /// ```toml
     /// [modules]
     /// core = "Core logic"
-    /// cli  = "CLI interface"
+    /// cli  = { desc = "CLI interface", path = "src/cli" }
     /// ```
     modules: Option<toml::value::Table>,
 }
@@ -43,6 +43,16 @@ struct RawCategory {
     desc: Option<String>,
 }
 
+#[derive(Debug, Clone, Default, Deserialize)]
+struct RawModule {
+    #[serde(alias = "description")]
+    desc: Option<String>,
+    #[serde(alias = "folder", alias = "folder_path")]
+    path: Option<String>,
+    #[serde(alias = "folders")]
+    paths: Option<Vec<String>>,
+}
+
 // ── Resolved config ──────────────────────────────────────
 
 #[derive(Debug, Clone)]
@@ -56,6 +66,7 @@ pub struct Config {
 pub struct Module {
     pub name: String,
     pub description: String,
+    pub paths: Vec<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -169,19 +180,46 @@ impl Config {
         if let Some(mods) = raw.modules {
             self.modules = mods
                 .into_iter()
-                .filter_map(|(name, value)| {
-                    let description = match value {
-                        toml::Value::String(s) => s,
-                        other => {
-                            crate::print::warn(&format!(
-                                "Invalid module entry for '{}': expected string, got {}",
-                                name,
-                                other.type_str()
-                            ));
-                            return None;
+                .filter_map(|(name, value)| match value {
+                    toml::Value::String(description) => Some(Module {
+                        name,
+                        description,
+                        paths: vec![],
+                    }),
+                    other => {
+                        let rm: RawModule = match other.try_into() {
+                            Ok(v) => v,
+                            Err(e) => {
+                                crate::print::warn(&format!(
+                                    "Invalid module entry for '{}': {}",
+                                    name, e
+                                ));
+                                return None;
+                            }
+                        };
+
+                        let mut paths = Vec::new();
+                        if let Some(path) = rm.path {
+                            let normalized = normalize_module_path(&path);
+                            if !normalized.is_empty() {
+                                paths.push(normalized);
+                            }
                         }
-                    };
-                    Some(Module { name, description })
+                        if let Some(path_list) = rm.paths {
+                            for path in path_list {
+                                let normalized = normalize_module_path(&path);
+                                if !normalized.is_empty() {
+                                    paths.push(normalized);
+                                }
+                            }
+                        }
+
+                        Some(Module {
+                            name,
+                            description: rm.desc.unwrap_or_default(),
+                            paths,
+                        })
+                    }
                 })
                 .collect();
         }
@@ -238,6 +276,42 @@ impl Config {
     /// Whether modules are configured.
     pub fn has_modules(&self) -> bool {
         !self.modules.is_empty()
+    }
+
+    /// Recommend a module based on changed file path frequency.
+    /// If multiple modules tie, the first one in config order wins.
+    pub fn recommended_module_name<'a>(&'a self, files: &[String]) -> Option<&'a str> {
+        let mut best_idx: Option<usize> = None;
+        let mut best_score = 0usize;
+
+        for (idx, module) in self.modules.iter().enumerate() {
+            if module.paths.is_empty() {
+                continue;
+            }
+
+            let mut score = 0usize;
+            for file in files {
+                for candidate in changed_file_candidates(file) {
+                    if module
+                        .paths
+                        .iter()
+                        .any(|path| file_matches_module_path(candidate, path))
+                    {
+                        score += 1;
+                        break;
+                    }
+                }
+            }
+
+            if score > best_score {
+                best_score = score;
+                best_idx = Some(idx);
+            }
+        }
+
+        best_idx
+            .and_then(|idx| self.modules.get(idx))
+            .map(|m| m.name.as_str())
     }
 
     /// Returns the default TOML content written by `sit init`.
@@ -311,4 +385,19 @@ fn read_raw(path: &Path) -> Option<RawConfig> {
             None
         }
     }
+}
+
+fn normalize_module_path(path: &str) -> String {
+    path.trim()
+        .trim_start_matches("./")
+        .trim_end_matches('/')
+        .to_owned()
+}
+
+fn changed_file_candidates(path: &str) -> impl Iterator<Item = &str> {
+    path.split(" -> ").map(str::trim)
+}
+
+fn file_matches_module_path(file_path: &str, module_path: &str) -> bool {
+    file_path == module_path || file_path.starts_with(&format!("{module_path}/"))
 }

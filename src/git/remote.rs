@@ -50,3 +50,11 @@ pub fn push_origin_main() -> Result<()> {
         .into())
     }
 }
+
+/// Returns true when the named remote exists.
+pub fn has_remote(name: &str) -> bool {
+    match git_command().args(["remote", "get-url", name]).output() {
+        Ok(output) => output.status.success(),
+        Err(_) => false,
+    }
+}

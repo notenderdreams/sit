@@ -103,7 +103,7 @@ fn render_page(
     offset: usize,
     show_end_notice: bool,
     stdout: &mut io::Stdout,
-) -> Result<usize> {
+) -> Result<()> {
     let (_, rows) = terminal::size()?;
     let visible_lines = rows.saturating_sub(1).max(1) as usize;
     let end = (offset + visible_lines).min(lines.len());
@@ -128,7 +128,7 @@ fn render_page(
     queue!(stdout, Print(footer))?;
     stdout.flush()?;
 
-    Ok(visible_lines)
+    Ok(())
 }
 
 struct TerminalGuard;
