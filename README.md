@@ -75,5 +75,7 @@ none = "No category prefix"
 
 Module entries accept either a simple description string or an object with optional `path` / `paths` folder mappings. During commit, `sit` counts selected-file matches per module path and opens the module picker with the highest-match module preselected, so pressing Enter accepts it immediately.
 
+For a full walkthrough of config locations, precedence, `.sit` initialization, sections, and hook env behavior, see `docs/config.md`.
+
 > Note
 > I genuinely wanted something like this for my projects, so I built it. There are other tools out there that do similar things, but I wanted something minimal and tailored to my workflow.
