@@ -2,12 +2,17 @@ use clap::{Parser, Subcommand};
 
 use crate::cmd;
 use crate::config::Config;
+use crate::env_args::parse_env_kv;
 use crate::error::Result;
 
 /// Structured interactive commits
 #[derive(Parser)]
 #[command(name = "sit", version, about)]
 pub struct Cli {
+    /// Extra environment variable for hooks (repeatable): --env KEY=VALUE
+    #[arg(long = "env", value_name = "KEY=VALUE", global = true, value_parser = parse_env_kv)]
+    env: Vec<(String, String)>,
+
     #[command(subcommand)]
     command: Option<Commands>,
 }
@@ -69,20 +74,21 @@ enum Commands {
 pub fn run() -> Result<()> {
     let cli = Cli::parse();
     let cfg = Config::load();
+    let hook_env = cli.env;
 
     match cli.command {
-        None | Some(Commands::Commit) => cmd::commit::interactive_commit(&cfg),
+        None | Some(Commands::Commit) => cmd::commit::interactive_commit(&cfg, &hook_env),
         Some(Commands::Categories) => cmd::categories::show_categories(&cfg),
         Some(Commands::Branch) => cmd::branch::switch_branch(),
         Some(Commands::Log) => cmd::log::show_log(),
         Some(Commands::Init) => cmd::init::init_config(),
-        Some(Commands::Push) => cmd::push::push_branch(),
+        Some(Commands::Push) => cmd::push::push_branch(&hook_env),
         Some(Commands::Release) => cmd::release::release_tag(),
-        Some(Commands::Amend) => cmd::amend::amend_commit(&cfg),
+        Some(Commands::Amend) => cmd::amend::amend_commit(&cfg, &hook_env),
         Some(Commands::Undo) => cmd::undo::undo_commit(),
         Some(Commands::Connect { username, repo }) => cmd::connect::connect_repo(&username, &repo),
         Some(Commands::CategoryShortcut(args)) => {
-            cmd::forward::handle_external_or_category(&cfg, &args)
+            cmd::forward::handle_external_or_category(&cfg, &args, &hook_env)
         }
     }
 }

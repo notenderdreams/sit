@@ -68,3 +68,27 @@ fn interactive_category_shortcut_commit_flow_creates_commit() {
         "unexpected subject: {subject}"
     );
 }
+
+#[test]
+#[ignore = "Full commit PTY flow is timing-sensitive in CI terminals; run manually"]
+fn interactive_category_shortcut_env_after_category_not_in_message() {
+    let repo = init_clean_repo();
+    write_file(&repo.path().join("README.md"), "hello\nchanged\n");
+
+    // Ensure --env placed after category is parsed as env override, not message text.
+    let (code, output) = run_sit_in_pty(
+        repo.path(),
+        &["feat", "--env", "SKIP_TEST=1", "ship"],
+        "\r\nyn",
+    );
+    assert_eq!(code, 0, "output:\n{output}");
+
+    let out = run_git(repo.path(), &["log", "-1", "--pretty=%s"]);
+    assert!(out.status.success());
+    let subject = String::from_utf8_lossy(&out.stdout).trim().to_string();
+    assert!(subject.contains("ship"), "unexpected subject: {subject}");
+    assert!(
+        !subject.contains("SKIP_TEST=1"),
+        "env leaked into subject: {subject}"
+    );
+}

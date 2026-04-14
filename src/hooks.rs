@@ -58,6 +58,44 @@ pub fn run_hook(name: &str, kind: HookKind, env: &[(&str, &str)]) -> Result<()> 
     Ok(())
 }
 
+/// Merge base SIT-provided env with user-supplied env from CLI.
+/// User values win on duplicate keys except for reserved `SIT_*` keys.
+pub fn merge_hook_env(base: &[(&str, &str)], extra: &[(String, String)]) -> Vec<(String, String)> {
+    let mut merged: Vec<(String, String)> = base
+        .iter()
+        .map(|(k, v)| ((*k).to_string(), (*v).to_string()))
+        .collect();
+
+    for (key, value) in extra {
+        if key.starts_with("SIT_") {
+            crate::print::warn(&format!(
+                "Ignoring --env {}: SIT_* keys are reserved for runtime hook context",
+                key
+            ));
+            continue;
+        }
+
+        let mut replaced = false;
+        for (existing_key, existing_value) in &mut merged {
+            if existing_key == key {
+                *existing_value = value.clone();
+                replaced = true;
+                break;
+            }
+        }
+
+        if !replaced {
+            merged.push((key.clone(), value.clone()));
+        }
+    }
+
+    merged
+}
+
+pub fn hook_env_refs(env: &[(String, String)]) -> Vec<(&str, &str)> {
+    env.iter().map(|(k, v)| (k.as_str(), v.as_str())).collect()
+}
+
 fn find_hook(name: &str) -> Option<PathBuf> {
     let root = crate::git::get_repo_root()?;
     let candidates = [

@@ -2,6 +2,7 @@ pub mod app;
 pub mod categories;
 pub mod cmd;
 pub mod config;
+pub mod env_args;
 pub mod error;
 pub mod git;
 pub mod hooks;
