@@ -74,7 +74,7 @@ fn render_commit_preview(
 /// Ask "Push now? [y/N]" with a single keypress.
 /// Returns `true` if the user pressed y/Y.
 pub fn confirm_push() -> Result<bool> {
-    confirm_simple("\r\n  Push now?", true)
+    confirm_simple("\r\n  Push now?", false)
 }
 
 pub fn confirm_create_branch(name: &str) -> Result<bool> {
