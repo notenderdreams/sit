@@ -21,7 +21,8 @@ pub const ICON_RENAMED: &str = "→";
 pub const ICON_UNTRACKED: &str = "?";
 
 pub const PAD: &str = "  ";
-pub const TAG_OK: &str = "[OK]";
-pub const TAG_ERROR: &str = "[ERROR]";
-pub const TAG_WARN: &str = "[WARN]";
-pub const TAG_INFO: &str = "[INFO]";
+pub const TAG_OK: &str = "ok:";
+pub const TAG_ERROR: &str = "error:";
+pub const TAG_WARN: &str = "warn:";
+pub const TAG_INFO: &str = "info:";
+pub const TAG_DEBUG: &str = "debug:";

@@ -4,6 +4,7 @@ use crate::cmd;
 use crate::config::Config;
 use crate::env_args::parse_env_kv;
 use crate::error::Result;
+use crate::print;
 
 /// Structured interactive commits
 #[derive(Parser)]
@@ -12,6 +13,10 @@ pub struct Cli {
     /// Extra environment variable for hooks (repeatable): --env KEY=VALUE
     #[arg(long = "env", value_name = "KEY=VALUE", global = true, value_parser = parse_env_kv)]
     env: Vec<(String, String)>,
+
+    /// Trace git commands and hooks to stderr (also: SIT_DEBUG=1)
+    #[arg(short, long, global = true)]
+    verbose: bool,
 
     #[command(subcommand)]
     command: Option<Commands>,
@@ -73,6 +78,7 @@ enum Commands {
 
 pub fn run() -> Result<()> {
     let cli = Cli::parse();
+    print::set_verbose(cli.verbose || std::env::var_os("SIT_DEBUG").is_some_and(|v| v != "0"));
     let cfg = Config::load();
     let hook_env = cli.env;
 
