@@ -21,27 +21,44 @@ pub fn run_hook(name: &str, kind: HookKind, env: &[(&str, &str)]) -> Result<()> 
         return Ok(());
     };
 
-    let shell = std::env::var("SHELL").unwrap_or_else(|_| "sh".to_string());
+    crate::print::debug(&format!("hook '{name}': sh {}", path.display()));
+    let started = std::time::Instant::now();
 
-    let output = Command::new(&shell)
-        .arg(&path)
-        .envs(env.iter().copied())
-        .output()
-        .map_err(|e| format!("Failed to run hook '{name}': {e}"))?;
-
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let stderr = String::from_utf8_lossy(&output.stderr);
-
-    if !stdout.trim().is_empty() {
-        for line in stdout.trim().lines() {
-            crate::print::hint(&format!("[{name}] {line}"));
-        }
+    let mut cmd = Command::new("sh");
+    cmd.arg(&path).envs(env.iter().copied());
+    if let Some(root) = crate::git::get_repo_root() {
+        cmd.current_dir(root);
     }
-    if !stderr.trim().is_empty() {
-        for line in stderr.trim().lines() {
-            crate::print::hint(&format!("[{name}] {line}"));
+
+    let output = match cmd.output() {
+        Ok(o) => o,
+        Err(e) => {
+            let msg = format!("Failed to run hook '{name}': {e}");
+            return match kind {
+                HookKind::Pre => Err(msg.into()),
+                HookKind::Post => {
+                    crate::print::warn(&msg);
+                    Ok(())
+                }
+            };
         }
+    };
+
+    for line in String::from_utf8_lossy(&output.stdout).trim_end().lines() {
+        crate::print::hint(&format!("[{name}] {line}"));
     }
+    for line in String::from_utf8_lossy(&output.stderr).trim_end().lines() {
+        crate::print::hint(&format!("[{name}] {line}"));
+    }
+
+    crate::print::debug(&format!(
+        "hook '{name}' exited {} ({} ms)",
+        output
+            .status
+            .code()
+            .map_or_else(|| "by signal".into(), |c| c.to_string()),
+        started.elapsed().as_millis()
+    ));
 
     if !output.status.success() {
         let code = output.status.code().unwrap_or(1);
@@ -50,7 +67,7 @@ pub fn run_hook(name: &str, kind: HookKind, env: &[(&str, &str)]) -> Result<()> 
                 return Err(format!("Hook '{name}' exited with status {code} — aborting").into());
             }
             HookKind::Post => {
-                crate::print::hint(&format!("Warning: hook '{name}' exited with status {code}"));
+                crate::print::warn(&format!("Hook '{name}' exited with status {code}"));
             }
         }
     }
