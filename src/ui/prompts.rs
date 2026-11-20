@@ -1,215 +1,62 @@
 use inquire::Text;
-use inquire::ui::{Color, RenderConfig, Styled};
 
+use super::editor::{EditorOptions, edit};
 use crate::error::Result;
+use crate::style::{GREY, RESET};
+
+fn badge(label: &str, fg: u8) -> (String, usize) {
+    (
+        format!("\x1b[1;7;{fg}m {label} {RESET} "),
+        label.chars().count() + 3,
+    )
+}
+
+fn non_empty_message(raw: String) -> Result<String> {
+    let message = raw.trim().to_string();
+    if message.is_empty() {
+        return Err("Commit message cannot be empty".into());
+    }
+    Ok(message)
+}
 
 pub fn prompt_message(category: &str) -> Result<String> {
-    let prefix = format!(" {} ", category);
-    let render_config = RenderConfig::default().with_prompt_prefix(
-        Styled::new(prefix.as_str())
-            .with_fg(Color::White)
-            .with_bg(Color::DarkCyan),
-    );
-
-    let message = Text::new("")
-        .with_render_config(render_config)
-        .with_placeholder("enter commit message...")
-        .prompt()?;
-
-    let message = message.trim().to_string();
-    if message.is_empty() {
-        return Err("Commit message cannot be empty".into());
-    }
-
-    Ok(message)
+    let (prefix, prefix_width) = badge(category, 36);
+    non_empty_message(edit(&EditorOptions {
+        prefix: &prefix,
+        prefix_width,
+        initial: "",
+        placeholder: "enter commit message...",
+        multiline: false,
+        esc_skips: false,
+    })?)
 }
 
-fn render_input(
-    buffer: &str,
-    cursor_index: usize,
-    start_col: u16,
-    stdout: &mut std::io::Stdout,
-) -> std::io::Result<()> {
-    use crossterm::{cursor, queue, style::Print, terminal};
-    use std::io::Write;
-
-    let replacement = format!(" {}↵{} ", crate::style::GREY, crate::style::RESET);
-    let display_str = buffer.replace('\n', &replacement);
-
-    let mut visual_cursor = 0;
-    for (i, c) in buffer.chars().enumerate() {
-        if i == cursor_index {
-            break;
-        }
-        if c == '\n' {
-            visual_cursor += 3;
-        } else {
-            visual_cursor += 1;
-        }
-    }
-
-    queue!(
-        stdout,
-        cursor::MoveToColumn(start_col),
-        terminal::Clear(terminal::ClearType::UntilNewLine),
-        Print(&display_str),
-        cursor::MoveToColumn(start_col + visual_cursor as u16)
-    )?;
-    stdout.flush()
-}
-
+/// Optional multi-line description. Enter submits; Esc or empty input skips.
 pub fn prompt_description() -> Result<String> {
-    use crossterm::{
-        cursor,
-        event::{self, DisableBracketedPaste, EnableBracketedPaste, Event, KeyCode, KeyEventKind},
-        execute, queue,
-        style::Print,
-    };
-    use std::io::Write;
-
-    super::terminal::run_with_terminal(|stdout| {
-        // Show cursor
-        execute!(stdout, cursor::Show)?;
-
-        // Enable bracketed paste
-        let _ = execute!(stdout, EnableBracketedPaste);
-
-        // Print prompt
-        queue!(
-            stdout,
-            Print(format!(
-                "{}    {}Description (optional): ",
-                crate::style::GREY,
-                crate::style::RESET
-            ))
-        )?;
-        stdout.flush()?;
-
-        let start_col = cursor::position().map(|(col, _)| col).unwrap_or(28);
-
-        let mut buffer = String::new();
-        let mut cursor_index = 0; // index in characters
-
-        let result = loop {
-            match event::read()? {
-                Event::Key(key) => {
-                    if key.kind != KeyEventKind::Press {
-                        continue;
-                    }
-                    match key.code {
-                        KeyCode::Enter | KeyCode::Char('\n') | KeyCode::Char('\r') => {
-                            queue!(stdout, Print("\r\n"))?;
-                            stdout.flush()?;
-                            break Ok(buffer);
-                        }
-                        KeyCode::Esc => {
-                            queue!(stdout, Print("\r\n"))?;
-                            stdout.flush()?;
-                            break Ok(String::new());
-                        }
-                        KeyCode::Char('c')
-                            if key.modifiers.contains(event::KeyModifiers::CONTROL) =>
-                        {
-                            queue!(stdout, Print("\r\n"))?;
-                            stdout.flush()?;
-                            break Err("Cancelled by user".into());
-                        }
-                        KeyCode::Char(c) => {
-                            let byte_idx = buffer
-                                .char_indices()
-                                .map(|(i, _)| i)
-                                .nth(cursor_index)
-                                .unwrap_or(buffer.len());
-                            buffer.insert(byte_idx, c);
-                            cursor_index += 1;
-                            render_input(&buffer, cursor_index, start_col, stdout)?;
-                        }
-                        KeyCode::Backspace => {
-                            if cursor_index > 0 {
-                                cursor_index -= 1;
-                                let byte_idx = buffer
-                                    .char_indices()
-                                    .map(|(i, _)| i)
-                                    .nth(cursor_index)
-                                    .unwrap();
-                                buffer.remove(byte_idx);
-                                render_input(&buffer, cursor_index, start_col, stdout)?;
-                            }
-                        }
-                        KeyCode::Delete => {
-                            if cursor_index < buffer.chars().count() {
-                                let byte_idx = buffer
-                                    .char_indices()
-                                    .map(|(i, _)| i)
-                                    .nth(cursor_index)
-                                    .unwrap();
-                                buffer.remove(byte_idx);
-                                render_input(&buffer, cursor_index, start_col, stdout)?;
-                            }
-                        }
-                        KeyCode::Left => {
-                            if cursor_index > 0 {
-                                cursor_index -= 1;
-                                render_input(&buffer, cursor_index, start_col, stdout)?;
-                            }
-                        }
-                        KeyCode::Right => {
-                            if cursor_index < buffer.chars().count() {
-                                cursor_index += 1;
-                                render_input(&buffer, cursor_index, start_col, stdout)?;
-                            }
-                        }
-                        KeyCode::Home => {
-                            cursor_index = 0;
-                            render_input(&buffer, cursor_index, start_col, stdout)?;
-                        }
-                        KeyCode::End => {
-                            cursor_index = buffer.chars().count();
-                            render_input(&buffer, cursor_index, start_col, stdout)?;
-                        }
-                        _ => {}
-                    }
-                }
-                Event::Paste(pasted_text) => {
-                    let cleaned = pasted_text.replace("\r\n", "\n").replace('\r', "\n");
-                    let byte_idx = buffer
-                        .char_indices()
-                        .map(|(i, _)| i)
-                        .nth(cursor_index)
-                        .unwrap_or(buffer.len());
-                    buffer.insert_str(byte_idx, &cleaned);
-                    cursor_index += cleaned.chars().count();
-                    render_input(&buffer, cursor_index, start_col, stdout)?;
-                }
-                _ => {}
-            }
-        };
-
-        let _ = execute!(stdout, DisableBracketedPaste);
-        result
-    })
+    let prefix = format!("{GREY}    {RESET}Description (optional): ");
+    let text = edit(&EditorOptions {
+        prefix: &prefix,
+        prefix_width: 4 + "Description (optional): ".len(),
+        initial: "",
+        placeholder: "",
+        multiline: true,
+        esc_skips: true,
+    })?;
+    Ok(text.trim_end().to_string())
 }
 
-/// Prompt for a commit message pre-filled with the last commit's message.
-/// The user can edit it or press Enter to keep it unchanged.
+/// Prompt for a commit message pre-filled with the last commit's message
+/// (subject and body). Edit it, or press Enter to keep it unchanged.
 pub fn prompt_amend_message(current: &str) -> Result<String> {
-    let render_config = RenderConfig::default().with_prompt_prefix(
-        Styled::new(" amend ")
-            .with_fg(Color::White)
-            .with_bg(Color::DarkYellow),
-    );
-
-    let message = Text::new("")
-        .with_render_config(render_config)
-        .with_initial_value(current)
-        .prompt()?;
-
-    let message = message.trim().to_string();
-    if message.is_empty() {
-        return Err("Commit message cannot be empty".into());
-    }
-
-    Ok(message)
+    let (prefix, prefix_width) = badge("amend", 33);
+    non_empty_message(edit(&EditorOptions {
+        prefix: &prefix,
+        prefix_width,
+        initial: current,
+        placeholder: "",
+        multiline: true,
+        esc_skips: false,
+    })?)
 }
 
 pub fn prompt_release_tag(previous_tag: Option<&str>) -> Result<String> {

@@ -1,4 +1,5 @@
 mod confirms;
+mod editor;
 mod prompts;
 mod selectors;
 mod terminal;

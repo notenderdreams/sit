@@ -7,20 +7,25 @@ use crossterm::{
 
 use crate::error::Result;
 
+/// Restores the terminal (cursor + cooked mode) on every exit path, including `?` and unwinding.
+struct RawGuard;
+
+impl Drop for RawGuard {
+    fn drop(&mut self) {
+        let _ = execute!(io::stdout(), cursor::Show);
+        let _ = terminal::disable_raw_mode();
+    }
+}
+
 pub fn run_with_terminal<T, F>(f: F) -> Result<T>
 where
     F: FnOnce(&mut io::Stdout) -> Result<T>,
 {
     let mut stdout = io::stdout();
     terminal::enable_raw_mode()?;
+    let _guard = RawGuard;
     execute!(stdout, cursor::Hide)?;
-
-    let result = f(&mut stdout);
-
-    execute!(stdout, cursor::Show)?;
-    terminal::disable_raw_mode()?;
-
-    result
+    f(&mut stdout)
 }
 
 /// Clear exactly `n` rendered lines from the terminal.

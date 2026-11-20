@@ -73,6 +73,17 @@ pub fn run_sit(cwd: &Path, args: &[&str]) -> std::process::Output {
 }
 
 pub fn run_sit_in_pty(cwd: &Path, args: &[&str], input: &str) -> (u32, String) {
+    run_sit_in_pty_with_delay(cwd, args, input, 0)
+}
+
+/// Like `run_sit_in_pty`, but waits before typing so bytes reach the app in raw mode
+/// (written earlier, the tty line discipline would turn `\r` into `\n`).
+pub fn run_sit_in_pty_with_delay(
+    cwd: &Path,
+    args: &[&str],
+    input: &str,
+    delay_ms: u64,
+) -> (u32, String) {
     let pty_system = native_pty_system();
     let pair = pty_system
         .openpty(PtySize {
@@ -93,17 +104,20 @@ pub fn run_sit_in_pty(cwd: &Path, args: &[&str], input: &str) -> (u32, String) {
     drop(pair.slave);
 
     let mut writer = pair.master.take_writer().expect("take writer");
-    writer
-        .write_all(input.as_bytes())
-        .expect("write input to pty");
-    writer.flush().expect("flush input to pty");
-
     let mut reader = pair.master.try_clone_reader().expect("clone reader");
     let reader_thread = thread::spawn(move || {
         let mut buf = Vec::new();
         let _ = reader.read_to_end(&mut buf);
         String::from_utf8_lossy(&buf).to_string()
     });
+
+    if delay_ms > 0 {
+        thread::sleep(std::time::Duration::from_millis(delay_ms));
+    }
+    writer
+        .write_all(input.as_bytes())
+        .expect("write input to pty");
+    writer.flush().expect("flush input to pty");
 
     let status = child.wait().expect("wait child");
     let output = reader_thread.join().expect("join reader thread");

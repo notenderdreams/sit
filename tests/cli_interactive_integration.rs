@@ -2,7 +2,7 @@ mod common;
 
 use common::{
     init_clean_repo, init_repo_with_origin_upstream, init_repo_with_two_commits, run_git,
-    run_sit_in_pty, write_file,
+    run_sit_in_pty, run_sit_in_pty_with_delay, write_file,
 };
 
 #[test]
@@ -31,8 +31,21 @@ fn interactive_undo_confirm_yes() {
 #[test]
 fn interactive_amend_keep_message_confirm_yes_decline_push() {
     let repo = init_clean_repo();
-    let (code, output) = run_sit_in_pty(repo.path(), &["amend"], "\nyn");
+    let (code, output) = run_sit_in_pty_with_delay(repo.path(), &["amend"], "\ryn", 500);
     assert_eq!(code, 0, "output:\n{output}");
+}
+
+#[test]
+fn interactive_amend_editor_multiline_and_navigation() {
+    let repo = init_clean_repo();
+    // Alt+Enter newline, type body, Up arrow, Ctrl+Left (word start), insert X, Enter, confirm, decline push.
+    let keys = "\x1b\rbody\x1b[A\x1b[1;5DX\ryn";
+    let (code, output) = run_sit_in_pty_with_delay(repo.path(), &["amend"], keys, 500);
+    assert_eq!(code, 0, "output:\n{output}");
+
+    let out = run_git(repo.path(), &["log", "-1", "--pretty=%B"]);
+    let msg = String::from_utf8_lossy(&out.stdout).trim().to_string();
+    assert_eq!(msg, "Xinit\nbody");
 }
 
 #[test]
