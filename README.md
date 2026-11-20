@@ -42,4 +42,25 @@ sit --help
 | `sit undo` / `sit u` | soft-reset last commit |
 | `sit init` | scaffold `.sit/config.toml` and hook templates |
 
+### Text editing
+
+Commit message, description and amend prompts share one editor:
+
+| Key | Action |
+|-----|--------|
+| `Enter` | submit |
+| `Alt+Enter` / `Ctrl+J` / `\` + `Enter` | newline (description, amend) |
+| `←` `→` `↑` `↓` | move (up/down keep column across lines) |
+| `Ctrl/Alt+←` `→` (or `Alt+b`/`f`) | move by word |
+| `Home` `End` / `Ctrl+A` `Ctrl+E` | line start / end (`Ctrl+Home`/`End`: whole text) |
+| `Ctrl+W`, `Alt+Backspace` / `Alt+D` | delete word back / forward |
+| `Ctrl+U` / `Ctrl+K` | delete to line start / end |
+| `Esc` | skip description / cancel |
+
+Bracketed paste is supported (multi-line paste keeps newlines in multi-line prompts).
+
+### Debugging
+
+`sit --verbose <cmd>` (or `SIT_DEBUG=1`) traces every git call and hook with exit code and timing to stderr.
+
 > NOTE: I genuinely wanted something like this for my own projects, so I built it. There are other tools out there that may do similar things, but I wanted something minimal and tailored to my workflow.

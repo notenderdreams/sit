@@ -134,7 +134,7 @@ Auto module preselection:
 
 ## Hook templates and runtime hook env
 
-`sit` executes hooks from `.sit/hooks/` if they exist.
+`sit` executes hooks from `.sit/hooks/` if they exist, via `sh`, with the repo root as working directory.
 
 Pre hooks abort operation on non-zero exit:
 - `pre-commit`
