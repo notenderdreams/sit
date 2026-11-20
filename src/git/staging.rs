@@ -1,4 +1,4 @@
-use super::common::git_command;
+use super::common::git_run;
 use crate::error::Result;
 
 pub fn stage_files(paths: &[String]) -> Result<()> {
@@ -22,43 +22,21 @@ pub fn stage_files(paths: &[String]) -> Result<()> {
     }
 
     let mut args = vec!["add", "--"];
-    let refs: Vec<&str> = paths.iter().map(|s| s.as_str()).collect();
-    args.extend(refs);
-
-    let output = git_command().args(&args).output()?;
-
-    if !output.status.success() {
-        return Err(format!(
-            "Failed to stage: {}",
-            String::from_utf8_lossy(&output.stderr)
-        )
-        .into());
-    }
-
-    Ok(())
+    args.extend(paths.iter().map(String::as_str));
+    git_run(&args, "Failed to stage").map(drop)
 }
 
 fn staged_paths() -> Result<Vec<String>> {
-    let output = git_command()
-        .args(["diff", "--name-only", "--cached"])
-        .output()?;
-
-    if !output.status.success() {
-        return Err(format!(
-            "Failed to inspect staged files: {}",
-            String::from_utf8_lossy(&output.stderr)
-        )
-        .into());
-    }
-
-    let paths = String::from_utf8_lossy(&output.stdout)
+    let out = git_run(
+        &["diff", "--name-only", "--cached"],
+        "Failed to inspect staged files",
+    )?;
+    Ok(out
         .lines()
         .map(str::trim)
         .filter(|p| !p.is_empty())
         .map(str::to_owned)
-        .collect();
-
-    Ok(paths)
+        .collect())
 }
 
 fn path_set<'a>(paths: impl Iterator<Item = &'a str>) -> std::collections::HashSet<String> {
@@ -77,18 +55,6 @@ pub fn unstage_files(paths: &[String]) -> Result<()> {
     }
 
     let mut args = vec!["restore", "--staged", "--"];
-    let refs: Vec<&str> = paths.iter().map(|s| s.as_str()).collect();
-    args.extend(refs);
-
-    let output = git_command().args(&args).output()?;
-
-    if !output.status.success() {
-        return Err(format!(
-            "Failed to unstage: {}",
-            String::from_utf8_lossy(&output.stderr)
-        )
-        .into());
-    }
-
-    Ok(())
+    args.extend(paths.iter().map(String::as_str));
+    git_run(&args, "Failed to unstage").map(drop)
 }

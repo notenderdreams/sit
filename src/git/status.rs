@@ -1,26 +1,37 @@
 use crate::error::Result;
 use crate::git::types::{FileChange, FileStatus};
 
-use super::common::git_command;
+use super::common::git_output;
 
+/// Parse `git status --porcelain -z` (NUL-separated, paths never quoted).
 pub fn get_status() -> Result<Vec<FileChange>> {
-    let output = git_command().args(["status", "--porcelain"]).output()?;
+    let output = git_output(&["status", "--porcelain", "-z"])?;
 
     if !output.status.success() {
         return Err("Not a git repository".into());
     }
 
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let mut changes = Vec::new();
+    Ok(parse_porcelain_z(&String::from_utf8_lossy(&output.stdout)))
+}
 
-    for line in stdout.lines() {
-        if line.len() < 3 {
+fn parse_porcelain_z(raw: &str) -> Vec<FileChange> {
+    let mut changes = Vec::new();
+    let mut entries = raw.split('\0');
+
+    while let Some(entry) = entries.next() {
+        let bytes = entry.as_bytes();
+        if bytes.len() < 4 {
             continue;
         }
+        let (index, worktree) = (bytes[0], bytes[1]);
+        let mut path = entry[3..].to_string();
 
-        let index = line.as_bytes()[0];
-        let worktree = line.as_bytes()[1];
-        let path = line[3..].to_string();
+        // Renames/copies carry the original path as the next NUL field.
+        if matches!(index, b'R' | b'C')
+            && let Some(orig) = entries.next()
+        {
+            path = format!("{orig} -> {path}");
+        }
 
         let status = match (index, worktree) {
             (b'?', b'?') => FileStatus::Untracked,
@@ -33,5 +44,21 @@ pub fn get_status() -> Result<Vec<FileChange>> {
         changes.push(FileChange { path, status });
     }
 
-    Ok(changes)
+    changes
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parses_spaces_and_renames() {
+        let raw = " M my file.txt\0R  new.rs\0old.rs\0?? x\0";
+        let c = parse_porcelain_z(raw);
+        assert_eq!(c.len(), 3);
+        assert_eq!(c[0].path, "my file.txt");
+        assert_eq!(c[1].path, "old.rs -> new.rs");
+        assert!(matches!(c[1].status, FileStatus::Renamed));
+        assert!(matches!(c[2].status, FileStatus::Untracked));
+    }
 }

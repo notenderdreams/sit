@@ -1,67 +1,37 @@
-use super::common::git_command;
+use super::common::git_run;
 use crate::error::Result;
 
 pub fn commit(message: &str) -> Result<()> {
-    let output = git_command().args(["commit", "-m", message]).output()?;
-
-    if output.status.success() {
-        Ok(())
-    } else {
-        Err(format!("Commit failed: {}", String::from_utf8_lossy(&output.stderr)).into())
-    }
+    git_run(&["commit", "-m", message], "Commit failed").map(drop)
 }
 
 /// Amend the last commit, optionally changing the message.
 pub fn commit_amend(message: &str) -> Result<()> {
-    let output = git_command()
-        .args(["commit", "--amend", "-m", message])
-        .output()?;
-
-    if output.status.success() {
-        Ok(())
-    } else {
-        Err(format!("Amend failed: {}", String::from_utf8_lossy(&output.stderr)).into())
-    }
+    git_run(&["commit", "--amend", "-m", message], "Amend failed").map(drop)
 }
 
-/// Return the subject line (first line) of the last commit message.
+/// Return the full message of the last commit.
 pub fn last_commit_message() -> Result<String> {
-    let output = git_command().args(["log", "-1", "--format=%B"]).output()?;
-
-    if !output.status.success() {
-        return Err("No commits found".into());
-    }
-
-    Ok(String::from_utf8_lossy(&output.stdout).trim().to_owned())
+    git_run(&["log", "-1", "--format=%B"], "No commits found")
 }
 
-/// Return the list of files changed in HEAD.
+/// Return the list of files changed in HEAD (works for the root commit too).
 pub fn last_commit_files() -> Result<Vec<String>> {
-    let output = git_command()
-        .args(["diff-tree", "--no-commit-id", "-r", "--name-only", "HEAD"])
-        .output()?;
-
-    if !output.status.success() {
-        return Err("Could not list files in last commit".into());
-    }
-
-    Ok(String::from_utf8_lossy(&output.stdout)
-        .lines()
-        .map(|line| line.to_owned())
-        .collect())
+    let out = git_run(
+        &[
+            "diff-tree",
+            "--root",
+            "--no-commit-id",
+            "-r",
+            "--name-only",
+            "HEAD",
+        ],
+        "Could not list files in last commit",
+    )?;
+    Ok(out.lines().map(str::to_owned).collect())
 }
 
 /// Undo the last commit with a soft reset (changes stay staged).
 pub fn soft_reset() -> Result<()> {
-    let output = git_command().args(["reset", "--soft", "HEAD~1"]).output()?;
-
-    if output.status.success() {
-        Ok(())
-    } else {
-        Err(format!(
-            "Reset failed: {}",
-            String::from_utf8_lossy(&output.stderr).trim()
-        )
-        .into())
-    }
+    git_run(&["reset", "--soft", "HEAD~1"], "Reset failed").map(drop)
 }

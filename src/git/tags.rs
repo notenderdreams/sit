@@ -1,5 +1,5 @@
 use super::branches::upstream;
-use super::common::git_command;
+use super::common::git_run;
 use crate::error::Result;
 
 fn is_release_tag(tag: &str) -> bool {
@@ -23,25 +23,15 @@ fn is_release_tag(tag: &str) -> bool {
 
 /// Return the latest semantic release tag (e.g. v1.2.3) if present.
 pub fn latest_release_tag() -> Result<Option<String>> {
-    let output = git_command()
-        .args(["tag", "--list", "--sort=-v:refname"])
-        .output()?;
-
-    if !output.status.success() {
-        return Err(format!(
-            "Failed to list tags: {}",
-            String::from_utf8_lossy(&output.stderr).trim()
-        )
-        .into());
-    }
-
-    let latest = String::from_utf8_lossy(&output.stdout)
+    let out = git_run(
+        &["tag", "--list", "--sort=-v:refname"],
+        "Failed to list tags",
+    )?;
+    Ok(out
         .lines()
         .map(str::trim)
         .find(|tag| is_release_tag(tag))
-        .map(str::to_owned);
-
-    Ok(latest)
+        .map(str::to_owned))
 }
 
 /// Create a local release tag.
@@ -49,37 +39,11 @@ pub fn create_tag(tag: &str) -> Result<()> {
     if !is_release_tag(tag) {
         return Err("Tag must be semver-like (v1.2.3 or 1.2.3)".into());
     }
-
-    let output = git_command().args(["tag", tag]).output()?;
-
-    if output.status.success() {
-        Ok(())
-    } else {
-        Err(format!(
-            "Failed to create tag: {}",
-            String::from_utf8_lossy(&output.stderr).trim()
-        )
-        .into())
-    }
+    git_run(&["tag", tag], "Failed to create tag").map(drop)
 }
 
 /// Push a tag to the default remote.
 pub fn push_tag(tag: &str) -> Result<()> {
-    let remote = if let Some((remote_name, _)) = upstream() {
-        remote_name
-    } else {
-        "origin".to_owned()
-    };
-
-    let output = git_command().args(["push", &remote, tag]).output()?;
-
-    if output.status.success() {
-        Ok(())
-    } else {
-        Err(format!(
-            "Failed to push tag: {}",
-            String::from_utf8_lossy(&output.stderr).trim()
-        )
-        .into())
-    }
+    let remote = upstream().map_or_else(|| "origin".to_owned(), |(remote, _)| remote);
+    git_run(&["push", &remote, tag], "Failed to push tag").map(drop)
 }
