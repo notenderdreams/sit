@@ -104,7 +104,7 @@ fn render_page(
     show_end_notice: bool,
     stdout: &mut io::Stdout,
 ) -> Result<()> {
-    let (_, rows) = terminal::size()?;
+    let (cols, rows) = terminal::size()?;
     let visible_lines = rows.saturating_sub(1).max(1) as usize;
     let end = (offset + visible_lines).min(lines.len());
 
@@ -115,7 +115,7 @@ fn render_page(
     )?;
 
     for line in &lines[offset..end] {
-        queue!(stdout, Print(*line), Print("\r\n"))?;
+        queue!(stdout, Print(clip(line, cols as usize)), Print("\r\n"))?;
     }
 
     let footer = if show_end_notice {
@@ -129,6 +129,36 @@ fn render_page(
     stdout.flush()?;
 
     Ok(())
+}
+
+/// Clip `line` to `cols` display cells, passing ANSI escapes through uncounted,
+/// so wrapped lines can't overflow the screen and scroll the newest commits away.
+fn clip(line: &str, cols: usize) -> String {
+    let mut out = String::with_capacity(line.len());
+    let mut width = 0;
+    let mut chars = line.chars().peekable();
+    while let Some(c) = chars.next() {
+        if c == '\x1b' {
+            out.push(c);
+            if chars.peek() == Some(&'[') {
+                for e in chars.by_ref() {
+                    out.push(e);
+                    if e.is_ascii_alphabetic() {
+                        break;
+                    }
+                }
+            }
+            continue;
+        }
+        let w = unicode_width::UnicodeWidthChar::width(c).unwrap_or(0);
+        if width + w > cols {
+            out.push_str(RESET);
+            break;
+        }
+        width += w;
+        out.push(c);
+    }
+    out
 }
 
 struct TerminalGuard;
@@ -150,5 +180,16 @@ impl Drop for TerminalGuard {
         let mut stdout = io::stdout();
         let _ = execute!(stdout, cursor::Show, LeaveAlternateScreen);
         let _ = terminal::disable_raw_mode();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::clip;
+
+    #[test]
+    fn clip_ignores_ansi_and_truncates() {
+        assert_eq!(clip("\x1b[33mabcdef\x1b[0m", 3), "\x1b[33mabc\x1b[0m");
+        assert_eq!(clip("abc", 10), "abc");
     }
 }
